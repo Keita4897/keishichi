@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>経市値 v7.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700;900&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--ink:#1a1a2e;--paper:#f5f0e8;--paper2:#ede8dc;--accent:#c84b31;--gold:#d4a843;--s0:#dedad2;--s1:#a8d8a8;--s2:#5cb85c;--s3:#f0c040;--s4:#e8834a;--s5:#c84b31}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;height:100dvh}
+header{background:var(--ink);color:var(--paper);padding:8px 14px 6px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;z-index:1000}
+.header-row1{display:flex;align-items:center;justify-content:space-between}
+.header-row2{display:flex;align-items:center;gap:6px}
+.logo{font-family:'Noto Serif JP',serif;font-size:1.4rem;font-weight:900;letter-spacing:.1em}
+.logo span{color:var(--gold)}
+.header-right{display:flex;align-items:center;gap:10px}
+.score-area{text-align:right}
+.score-num{font-family:'Noto Serif JP',serif;font-size:1.8rem;font-weight:900;color:var(--gold);line-height:1}
+.score-lbl{font-size:.65rem;opacity:.6}
+.gps-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:white;border-radius:8px;padding:6px 10px;font-size:.72rem;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:background .2s}
+.gps-btn.sel-active{background:rgba(212,168,67,.35);border-color:var(--gold);color:var(--gold);font-weight:500}
+/* 地図切り替え */
+.map-layer-ctrl{position:absolute;bottom:60px;right:10px;z-index:800;display:flex;flex-direction:column;gap:4px}
+.map-layer-btn{background:white;border:1px solid #ccc;border-radius:6px;padding:5px 8px;font-size:.68rem;font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.15);color:var(--ink);text-align:left;transition:all .15s}
+.map-layer-btn.active{background:var(--ink);color:white;border-color:var(--ink)}
+.map-layer-btn:hover{background:#f5f0e8}
+.map-layer-btn.active:hover{background:#333}
+.sel-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:white;z-index:800;padding:10px 14px;flex-direction:column;gap:8px}
+.sel-bar.open{display:flex}
+.sel-bar-top{display:flex;align-items:center;justify-content:space-between;font-size:.8rem}
+.sel-bar-count{font-weight:500;color:var(--gold)}
+.sel-bar-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sel-action-btn{padding:7px 12px;border:none;border-radius:7px;font-family:'Noto Sans JP',sans-serif;font-size:.76rem;font-weight:500;cursor:pointer;white-space:nowrap}
+.sel-action-btn.apply{background:var(--accent);color:white}
+.sel-action-btn.del{background:#e57373;color:white}
+.sel-action-btn.cancel{background:rgba(255,255,255,.15);color:white}
+.sel-status-sel{padding:5px 8px;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.75rem;background:rgba(255,255,255,.1);color:white;border:1px solid rgba(255,255,255,.25)}
+.sel-date-inp{padding:5px 8px;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.75rem;background:rgba(255,255,255,.1);color:white;border:1px solid rgba(255,255,255,.25)}
+.gps-btn.tracking{background:rgba(212,168,67,.25);border-color:var(--gold);color:var(--gold)}
+.search-wrap{position:relative;flex:1;min-width:0}
+.search-input{width:100%;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:white;font-family:'Noto Sans JP',sans-serif;font-size:.75rem;outline:none}
+.search-input::placeholder{color:rgba(255,255,255,.5)}
+.leaflet-interactive:focus{outline:none}
+.leaflet-container path{outline:none}
+.search-input:focus{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.6)}
+.search-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:2000;max-height:240px;overflow-y:auto;display:none}
+.search-dropdown.open{display:block}
+.search-item{padding:8px 12px;font-size:.78rem;cursor:pointer;border-bottom:1px solid #f0ebe0;color:var(--ink)}
+.search-item:last-child{border-bottom:none}
+.search-item:hover,.search-item.active{background:#f5f0e8}
+.search-item .si-pref{font-size:.66rem;color:#aaa;margin-left:4px}
+/* 一括登録パネル */
+.bulk-panel{padding:12px 14px}
+.bulk-panel h3{font-family:'Noto Serif JP',serif;font-size:.88rem;margin-bottom:4px}
+.bulk-panel p{font-size:.74rem;color:#777;line-height:1.7;margin-bottom:10px}
+.bulk-select-wrap{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.bulk-select{flex:1;min-width:100px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.75rem;background:#fafafa;color:var(--ink)}
+.bulk-pref-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px;max-height:160px;overflow-y:auto}
+.bulk-pref-btn{padding:5px 4px;border:1px solid #ddd;border-radius:6px;background:white;font-family:'Noto Sans JP',sans-serif;font-size:.68rem;cursor:pointer;text-align:center;transition:all .15s}
+.bulk-pref-btn.sel{background:var(--accent);color:white;border-color:var(--accent)}
+.bulk-apply-btn{width:100%;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;margin-bottom:6px}
+.bulk-result{font-size:.74rem;color:#2e7d32;min-height:16px}
+/* 都道府県タブ */
+.pref-tab-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.pref-sort-bar{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid #e0dbd0;flex-shrink:0;align-items:center}
+.pref-sort-bar select{flex:1;padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.72rem;background:#fafafa;color:var(--ink)}
+.pref-sort-bar button{padding:5px 9px;border:1px solid #ddd;border-radius:6px;background:#fafafa;font-size:.72rem;cursor:pointer;white-space:nowrap;color:var(--ink)}
+.pref-sort-bar button.asc::after{content:' ↑'}
+.pref-sort-bar button.desc::after{content:' ↓'}
+.pref-list-scroll{flex:1;overflow-y:auto}
+.pref-bars{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.pref-row{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:.75rem;transition:background .15s;border-bottom:1px solid #f0ebe0}
+.pref-row:hover,.pref-row:active{background:rgba(0,0,0,.04)}
+.pref-row.open{background:#f5f0e8;font-weight:500}
+.pref-name{min-width:66px;font-size:.78rem}
+.pref-bar-bg{flex:1;height:5px;background:#ddd;border-radius:3px;overflow:hidden}
+.pref-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s}
+.pref-pts{min-width:72px;text-align:right;color:#888;font-size:.68rem}
+/* 都道府県詳細パネル */
+.pref-detail{background:white;border-top:2px solid var(--accent);padding:0;display:none;flex-direction:column;max-height:55dvh;overflow:hidden}
+.pref-detail.open{display:flex}
+.pref-detail-header{padding:10px 14px 6px;flex-shrink:0;border-bottom:1px solid #f0ebe0}
+.pref-detail-title{font-family:'Noto Serif JP',serif;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.pref-detail-close{background:none;border:none;font-size:1rem;cursor:pointer;color:#aaa;padding:0 4px}
+.pref-achievement{display:flex;align-items:center;gap:10px;margin-top:6px;margin-bottom:4px}
+.pref-achievement-bar-bg{flex:1;height:8px;background:#eee;border-radius:4px;overflow:hidden}
+.pref-achievement-bar-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s}
+.pref-achievement-txt{font-size:.72rem;color:#666;white-space:nowrap}
+.pref-status-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0}
+.pref-status-cell{text-align:center;padding:4px 2px;border-radius:6px;font-size:.64rem}
+.pref-status-cell .sc-count{font-size:.85rem;font-weight:700;display:block}
+.pref-detail-tabs{display:flex;border-bottom:1px solid #e0dbd0;flex-shrink:0}
+.pref-detail-tab{flex:1;padding:6px;background:none;border:none;font-family:'Noto Sans JP',sans-serif;font-size:.72rem;cursor:pointer;color:#888;border-bottom:2px solid transparent}
+.pref-detail-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.pref-detail-body{flex:1;overflow-y:auto;padding:8px 12px}
+.pref-city-item{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f5f0e8;font-size:.78rem;cursor:pointer;border-radius:4px;transition:background .1s}
+.pref-city-item:hover{background:#f0ebe0}
+.pref-city-item:hover .pref-city-dot{transform:scale(1.3);transition:transform .15s}
+.pref-city-item:hover .pref-city-name{font-weight:500}
+.pref-city-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pref-city-name{flex:1}
+.pref-city-date{font-size:.66rem;color:#bbb}
+.pref-bulk-area{padding:8px 12px;border-top:1px solid #e0dbd0;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pref-bulk-select{flex:1;min-width:90px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.72rem;background:#fafafa;color:var(--ink)}
+.pref-bulk-btn{padding:7px 10px;border:none;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.72rem;font-weight:500;cursor:pointer;white-space:nowrap}
+.pref-bulk-btn.add{background:var(--accent);color:white}
+.pref-bulk-btn.del{background:#e57373;color:white}
+.app{display:flex;flex:1;overflow:hidden}
+#map{flex:1;z-index:0}
+.sheet{position:absolute;bottom:0;left:0;right:0;background:var(--paper2);border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.18);z-index:500;display:flex;flex-direction:column;transition:height .3s cubic-bezier(.4,0,.2,1);height:44px}
+.sheet.peek{height:260px}
+.sheet.open{height:68dvh}
+.sheet-handle{width:36px;height:4px;background:#bbb;border-radius:2px;margin:8px auto 4px;cursor:pointer;flex-shrink:0}
+.tabs{display:flex;border-bottom:1px solid #ccc8be;flex-shrink:0;overflow-x:auto}
+.tab-btn{flex:1;min-width:52px;padding:8px 3px;background:none;border:none;font-family:'Noto Sans JP',sans-serif;font-size:.7rem;cursor:pointer;color:#777;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.tab-pane{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tab-pane.active{display:block}
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 12px}
+.legend-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:2px solid transparent;cursor:pointer;background:white;transition:all .15s;user-select:none}
+.legend-item.sel{border-color:var(--accent);background:rgba(200,75,49,.08)}
+.legend-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(0,0,0,.15)}
+.legend-txt{font-size:.75rem}
+.legend-pts{font-size:.65rem;color:#999}
+.stats-bar{display:flex;gap:10px;padding:8px 14px;background:white;border-top:1px solid #e8e4dc;font-size:.72rem;color:#666;flex-shrink:0;flex-wrap:wrap}
+.stat-item strong{color:var(--ink);font-size:.85rem}
+.pref-list{padding:10px 12px}
+.pref-row{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;font-size:.75rem;transition:background .15s}
+.pref-row:hover,.pref-row:active{background:rgba(0,0,0,.05)}
+.pref-name{min-width:66px}
+.pref-bar-bg{flex:1;height:5px;background:#ddd;border-radius:3px;overflow:hidden}
+.pref-bar-fill{height:100%;background:var(--accent);border-radius:3px}
+.pref-pts{min-width:28px;text-align:right;color:#888;font-size:.7rem}
+.memo-wrap{padding:12px 14px}
+.memo-city{font-family:'Noto Serif JP',serif;font-size:1rem;font-weight:700}
+.memo-pref{font-size:.72rem;color:#888;margin-bottom:10px}
+.history-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.history-card{background:white;border-radius:8px;padding:8px 10px;display:flex;align-items:flex-start;gap:8px}
+.history-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.history-body{flex:1;font-size:.75rem}
+.history-status{font-weight:500}
+.history-date{color:#999;font-size:.68rem}
+.history-memo{color:#555;margin-top:2px;white-space:pre-wrap;word-break:break-all}
+.history-del{background:none;border:none;color:#ccc;font-size:.8rem;cursor:pointer;padding:2px 6px;border-radius:4px}
+.history-edit{background:none;border:none;color:#aac4e8;font-size:.8rem;cursor:pointer;padding:2px 6px;border-radius:4px}
+.edit-form{background:#f0ebe0;border-radius:8px;padding:10px 12px;border:1px solid #d4c9b0}
+.new-entry{background:white;border-radius:8px;padding:10px 12px;margin-bottom:16px}
+.new-entry h4{font-size:.78rem;color:#555;margin-bottom:8px}
+.form-row{margin-bottom:8px}
+.form-label{font-size:.7rem;color:#888;margin-bottom:3px}
+.form-select,.form-date,.form-textarea{width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.78rem;color:var(--ink);background:#fafafa}
+.form-textarea{height:80px;resize:vertical}
+.save-btn{width:100%;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer}
+.save-btn:active{background:#a83020}
+.memo-placeholder{text-align:center;color:#bbb;font-size:.8rem;padding:30px 20px}
+/* 履歴一覧 */
+.hlist-wrap{padding:10px 12px}
+.hlist-filter{display:flex;gap:6px;margin-bottom:10px}
+.hlist-filter select{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-family:'Noto Sans JP',sans-serif;font-size:.73rem;background:#fafafa;color:var(--ink)}
+.hlist-items{display:flex;flex-direction:column;gap:6px}
+.hlist-card{background:white;border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:background .15s}
+.hlist-card:active{background:#f0ebe0}
+.hlist-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.hlist-body{flex:1;min-width:0}
+.hlist-city{font-size:.82rem;font-weight:500}
+.hlist-pref{font-size:.68rem;color:#aaa}
+.hlist-sub{font-size:.72rem;color:#777;margin-top:1px}
+.hlist-date{font-size:.68rem;color:#bbb}
+.hlist-memo{font-size:.72rem;color:#888;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.hlist-empty{text-align:center;color:#bbb;font-size:.8rem;padding:30px 0}
+/* データ管理 */
+.export-wrap{padding:14px}
+.export-wrap h3{font-family:'Noto Serif JP',serif;font-size:.88rem;margin-bottom:4px}
+.export-wrap p{font-size:.74rem;color:#777;margin-bottom:12px;line-height:1.7}
+.export-btn{width:100%;padding:10px;border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;font-weight:500;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+.export-btn.primary{background:var(--ink);color:white}
+.export-btn.green{background:#2e7d32;color:white}
+.export-btn.outline{background:white;border:2px solid var(--ink);color:var(--ink)}
+.export-divider{border:none;border-top:1px solid #e0dbd0;margin:14px 0}
+.export-danger{background:none;border:2px solid #e57373;color:#e57373;width:100%;padding:9px;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:.8rem;cursor:pointer}
+/* セットアップ */
+#setup-screen{position:fixed;inset:0;background:var(--paper);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.setup-logo{font-family:'Noto Serif JP',serif;font-size:2rem;font-weight:900;margin-bottom:6px}
+.setup-logo span{color:var(--gold)}
+.setup-box{background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.setup-box h2{font-size:.95rem;margin-bottom:10px;font-family:'Noto Serif JP',serif}
+.setup-box p{font-size:.78rem;color:#555;line-height:1.8;margin-bottom:14px}
+.setup-box ol{font-size:.76rem;color:#444;line-height:2;padding-left:18px;margin-bottom:14px}
+.setup-box a{color:var(--accent);word-break:break-all}
+.file-drop{border:2px dashed #ccc;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:10px}
+.file-drop:hover,.file-drop.drag{border-color:var(--accent)}
+.file-drop input{display:none}
+.file-drop-txt{font-size:.8rem;color:#888}
+.demo-btn{width:100%;padding:9px;background:var(--ink);color:white;border:none;border-radius:8px;font-size:.8rem;cursor:pointer;margin-top:6px}
+/* GPS marker */
+.gps-pulse{width:16px;height:16px;border-radius:50%;background:#2979ff;border:3px solid white;box-shadow:0 0 0 5px rgba(41,121,255,.25),0 0 0 10px rgba(41,121,255,.1)}
+/* Toast */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--ink);color:white;padding:8px 18px;border-radius:20px;font-size:.76rem;opacity:0;transition:all .25s;pointer-events:none;z-index:9000;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(min-width:700px){
+  .sheet{position:relative;height:auto!important;border-radius:0;box-shadow:none;border-right:1px solid #ccc8be;width:310px;flex-shrink:0;order:-1}
+  .sheet-handle{display:none}
+  #map{flex:1}
+}
+</style>
+</head>
+<body>
+<div id="setup-screen">
+  <div class="setup-logo">経<span>市</span>値</div>
+  <div style="font-size:.78rem;color:#888;margin-bottom:20px">市区町村経験マップ</div>
+  <div id="load-status" style="font-size:.78rem;color:#555;margin-bottom:16px;text-align:center;max-width:300px;line-height:1.8">地図データを取得中…</div>
+  <div id="load-bar-wrap" style="width:240px;height:6px;background:#ddd;border-radius:3px;overflow:hidden;margin-bottom:20px">
+    <div id="load-bar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .3s"></div>
+  </div>
+  <div class="spinner" id="load-spinner"></div>
+  <button id="load-retry-btn" style="display:none;margin-top:16px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:.82rem;cursor:pointer" onclick="startAutoLoad()">再試行</button>
+</div>
+<div id="toast"></div>
+<div class="sel-bar" id="sel-bar">
+  <div class="sel-bar-top">
+    <span class="sel-bar-count" id="sel-count">0件選択中</span>
+    <button class="sel-action-btn cancel" onclick="clearSel()">✕ 解除</button>
+  </div>
+  <div class="sel-bar-actions">
+    <select class="sel-status-sel" id="sel-status">
+      <option value="1">通過した</option>
+      <option value="2">立ち寄った</option>
+      <option value="3">歩き回った</option>
+      <option value="4">泊まった</option>
+      <option value="5">住んだ</option>
+    </select>
+    <input type="date" class="sel-date-inp" id="sel-date">
+    <button class="sel-action-btn apply" onclick="applySelStatus()">✅ 一括登録</button>
+    <button class="sel-action-btn del" onclick="applySelDelete()">🗑 一括削除</button>
+  </div>
+</div>
+<header>
+  <div class="header-row1">
+    <div class="logo">経<span>市</span>値<span style="font-size:.55rem;opacity:.5;margin-left:4px;font-family:'Noto Sans JP',sans-serif;font-weight:300">v7.0</span></div>
+    <div class="score-area">
+      <div class="score-num" id="total-score">0</div>
+      <div class="score-lbl">合計スコア</div>
+    </div>
+  </div>
+  <div class="header-row2">
+    <div class="search-wrap" id="search-wrap" style="flex:1;max-width:none">
+      <input class="search-input" id="search-input" type="text" placeholder="市区町村を検索…"
+        oninput="onSearchInput(this.value)" onkeydown="onSearchKey(event)" autocomplete="off">
+      <div class="search-dropdown" id="search-dropdown"></div>
+    </div>
+    <div style="display:flex;gap:4px;flex-shrink:0">
+      <button class="gps-btn" id="undo-btn" onclick="undo()" disabled title="取り消し（Ctrl+Z）">↩</button>
+      <button class="gps-btn" id="redo-btn" onclick="redo()" disabled title="やり直し（Ctrl+Y）">↪</button>
+    </div>
+    <button class="gps-btn" id="sel-mode-btn" onclick="toggleSelMode()" style="flex-shrink:0">☑ 選択</button>
+    <button class="gps-btn" id="gps-btn" onclick="toggleGPS()" style="flex-shrink:0">📍 現在地</button>
+  </div>
+</header>
+<div class="app">
+  <div id="map">
+    <div class="map-layer-ctrl" id="map-layer-ctrl">
+      <button class="map-layer-btn active" onclick="switchLayer('blank')" id="layer-blank">🗺 白地図</button>
+      <button class="map-layer-btn" onclick="switchLayer('osm')" id="layer-osm">🛣 道路・建物</button>
+      <button class="map-layer-btn" onclick="switchLayer('gsi')" id="layer-gsi">🏔 地理院地図</button>
+    </div>
+  </div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle" id="sheet-handle"></div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('legend')">ステータス</button>
+      <button class="tab-btn" onclick="showTab('pref')">都道府県</button>
+      <button class="tab-btn" onclick="showTab('memo')">メモ</button>
+      <button class="tab-btn" onclick="showTab('hlist')">履歴</button>
+      <button class="tab-btn" onclick="showTab('bulk')">一括</button>
+      <button class="tab-btn" onclick="showTab('export')">データ</button>
+    </div>
+    <div class="tab-pane active" id="pane-legend">
+      <div class="legend-grid">
+        <div class="legend-item sel" data-lv="0" onclick="pickLevel(0)"><div class="legend-dot" style="background:var(--s0)"></div><div><div class="legend-txt">未訪問</div><div class="legend-pts">0点</div></div></div>
+        <div class="legend-item" data-lv="1" onclick="pickLevel(1)"><div class="legend-dot" style="background:var(--s1)"></div><div><div class="legend-txt">通過した</div><div class="legend-pts">1点</div></div></div>
+        <div class="legend-item" data-lv="2" onclick="pickLevel(2)"><div class="legend-dot" style="background:var(--s2)"></div><div><div class="legend-txt">立ち寄った</div><div class="legend-pts">2点</div></div></div>
+        <div class="legend-item" data-lv="3" onclick="pickLevel(3)"><div class="legend-dot" style="background:var(--s3)"></div><div><div class="legend-txt">歩き回った</div><div class="legend-pts">3点</div></div></div>
+        <div class="legend-item" data-lv="4" onclick="pickLevel(4)"><div class="legend-dot" style="background:var(--s4)"></div><div><div class="legend-txt">泊まった</div><div class="legend-pts">4点</div></div></div>
+        <div class="legend-item" data-lv="5" onclick="pickLevel(5)"><div class="legend-dot" style="background:var(--s5)"></div><div><div class="legend-txt">住んだ</div><div class="legend-pts">5点</div></div></div>
+      </div>
+      <div class="stats-bar">
+        <div class="stat-item"><strong id="s-visited">0</strong> 訪問済</div>
+        <div class="stat-item"><strong id="s-total">—</strong> 市区町村</div>
+        <div class="stat-item"><strong id="s-entries">0</strong> 記録件数</div>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-pref">
+      <div class="pref-tab-wrap">
+        <div class="pref-sort-bar">
+          <select id="pref-sort-key" onchange="renderPrefList()">
+            <option value="code">北から順（デフォルト）</option>
+            <option value="vrate-desc">訪問率 高い順</option>
+            <option value="vrate-asc">訪問率 低い順</option>
+            <option value="visited-desc">訪問数 多い順</option>
+            <option value="visited-asc">訪問数 少ない順</option>
+            <option value="rate-desc">点数率 高い順</option>
+            <option value="rate-asc">点数率 低い順</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:12px;padding:4px 12px;font-size:.62rem;color:#aaa;background:#fafaf8;border-bottom:1px solid #e8e4dc;flex-shrink:0">
+          <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:12px;height:4px;border-radius:2px;background:#2979ff"></span>訪問率</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:12px;height:4px;border-radius:2px;background:var(--accent)"></span>点数率</span>
+          <span style="margin-left:auto">ソートで太さ変化</span>
+        </div>
+        <div class="pref-list-scroll" id="pref-list"></div>
+        <div class="pref-detail" id="pref-detail">
+          <div class="pref-detail-header">
+            <div class="pref-detail-title">
+              <span id="pref-detail-name">—</span>
+              <button class="pref-detail-close" onclick="closePrefDetail()">✕</button>
+            </div>
+            <div class="pref-achievement">
+              <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:.64rem;color:#2979ff;width:36px">訪問率</span>
+                  <div style="flex:1;height:6px;background:#dde8f5;border-radius:3px;overflow:hidden">
+                    <div id="pref-ach-bar-v" style="width:0%;height:100%;background:#2979ff;border-radius:3px;transition:width .5s"></div>
+                  </div>
+                  <span id="pref-ach-vpct" style="font-size:.66rem;color:#555;white-space:nowrap">0%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:.64rem;color:var(--accent);width:36px">点数率</span>
+                  <div style="flex:1;height:6px;background:#f0dbd8;border-radius:3px;overflow:hidden">
+                    <div id="pref-ach-bar-s" style="width:0%;height:100%;background:var(--accent);border-radius:3px;transition:width .5s"></div>
+                  </div>
+                  <span id="pref-ach-spct" style="font-size:.66rem;color:#555;white-space:nowrap">0%</span>
+                </div>
+              </div>
+              <span class="pref-achievement-txt" id="pref-ach-txt" style="min-width:80px;text-align:right">0/0市区町村</span>
+            </div>
+            <div class="pref-status-grid" id="pref-status-grid"></div>
+          </div>
+          <div class="pref-detail-tabs">
+            <button class="pref-detail-tab active" onclick="switchPrefDetailTab('visited')">訪問済み</button>
+            <button class="pref-detail-tab" onclick="switchPrefDetailTab('unvisited')">未訪問</button>
+            <button class="pref-detail-tab" onclick="switchPrefDetailTab('all')">全市区町村</button>
+          </div>
+          <div class="pref-detail-body" id="pref-detail-body"></div>
+          <div class="pref-bulk-area">
+            <input type="date" class="pref-bulk-select" id="pref-bulk-date">
+            <select class="pref-bulk-select" id="pref-bulk-status">
+              <option value="1">通過した</option>
+              <option value="2">立ち寄った</option>
+              <option value="3">歩き回った</option>
+              <option value="4">泊まった</option>
+              <option value="5">住んだ</option>
+            </select>
+            <button class="pref-bulk-btn add" onclick="prefBulkAdd()">一括登録</button>
+            <button class="pref-bulk-btn del" onclick="prefBulkDel()">全削除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-memo"><div class="memo-wrap" id="memo-wrap"><div class="memo-placeholder">地図の市区町村をタップしてください</div></div></div>
+    <div class="tab-pane" id="pane-hlist">
+      <div class="hlist-wrap">
+        <div class="hlist-filter">
+          <select id="hlist-sort" onchange="renderHlist()">
+            <option value="date-desc">新しい順</option>
+            <option value="date-asc">古い順</option>
+            <option value="status-desc">ステータス高い順</option>
+            <option value="pref">都道府県順</option>
+          </select>
+          <select id="hlist-sf" onchange="renderHlist()">
+            <option value="">全ステータス</option>
+            <option value="1">通過した</option>
+            <option value="2">立ち寄った</option>
+            <option value="3">歩き回った</option>
+            <option value="4">泊まった</option>
+            <option value="5">住んだ</option>
+          </select>
+        </div>
+        <div class="hlist-items" id="hlist-items"></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-bulk">
+      <div class="bulk-panel">
+        <h3>☑ 選択モードで一括操作</h3>
+        <p>ヘッダーの「<strong>☑ 選択</strong>」ボタンをタップすると選択モードになります。地図上の市区町村を複数タップして選び、まとめてステータス登録・削除ができます。</p>
+        <div style="background:#f0ebe0;border-radius:8px;padding:10px 12px;font-size:.76rem;color:#555;line-height:2">
+          <div>① ヘッダー「☑ 選択」をタップ</div>
+          <div>② 地図上の市区町村を複数タップ（青く光る）</div>
+          <div>③ 画面下のバーでステータス・日付を選択</div>
+          <div>④「一括登録」または「一括削除」をタップ</div>
+        </div>
+        <hr style="border:none;border-top:1px solid #ddd;margin:14px 0">
+        <h3>🗑 全記録の一括削除</h3>
+        <p>特定の条件で記録をまとめて削除します。</p>
+        <button class="bulk-apply-btn" style="background:#e57373" onclick="bulkDeleteByStatus()">ステータスを指定して削除</button>
+        <select class="bulk-select" id="bulk-del-status" style="width:100%;margin-top:6px">
+          <option value="1">通過した の記録をすべて削除</option>
+          <option value="2">立ち寄った の記録をすべて削除</option>
+          <option value="3">歩き回った の記録をすべて削除</option>
+          <option value="4">泊まった の記録をすべて削除</option>
+          <option value="5">住んだ の記録をすべて削除</option>
+        </select>
+        <div class="bulk-result" id="bulk-result" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-export">
+      <div class="export-wrap">
+        <h3>💾 バックアップ・エクスポート</h3>
+        <p>ファイルに保存しておくと、ブラウザのキャッシュが消えても安心です。</p>
+        <button class="export-btn primary" onclick="exportJSON()">📦 JSONでバックアップ（推奨）</button>
+        <button class="export-btn green" onclick="exportCSV()">📊 CSVでエクスポート（Excel用）</button>
+        <hr class="export-divider">
+        <h3>📂 インポート・復元</h3>
+        <p>バックアップしたJSONファイルを読み込んで復元します。既存データとマージされます。</p>
+        <button class="export-btn outline" onclick="document.getElementById('import-input').click()">📥 JSONから復元</button>
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="importJSON(this)">
+        <hr class="export-divider">
+        <h3>🗺️ Googleタイムライン連携</h3>
+        <p>GoogleマップのタイムラインをエクスポートしたJSONを読み込むと、訪問した市区町村を自動で記録します。</p>
+        <div style="font-size:.72rem;background:#f0ebe0;border-radius:8px;padding:10px;margin-bottom:10px;line-height:1.8;color:#555">
+          <strong>取得手順：</strong><br>
+          スマホの設定 → 位置情報 → 位置情報サービス → タイムライン<br>
+          → 右上メニュー →「タイムラインデータをエクスポート」<br>
+          → <code>Timeline.json</code> をこのアプリに読み込む
+        </div>
+        <div style="font-size:.72rem;color:#c84b31;margin-bottom:8px;padding:6px 8px;background:#fff0ee;border-radius:6px">⚠️ このボタン専用です。「JSONから復元」ボタンとは別です。</div>
+        <button class="export-btn primary" onclick="document.getElementById('timeline-input').click()">
+          📍 Timeline.jsonを読み込む
+        </button>
+        <input type="file" id="timeline-input" accept=".json" style="display:none" onchange="importTimeline(this)">
+        <button class="export-btn outline" style="margin-top:4px" onclick="document.getElementById('timeline-diag').click()">
+          🔍 ファイル診断（読み込めない場合）
+        </button>
+        <input type="file" id="timeline-diag" accept=".json" style="display:none" onchange="diagnoseTimeline(this)">
+        <div id="timeline-result" style="font-size:.74rem;color:#555;margin-top:6px;min-height:16px;line-height:1.7;white-space:pre-wrap;word-break:break-all"></div>
+                <hr class="export-divider">
+        <h3>🗺️ GPXファイル読み込み</h3>
+        <p>ヤマレコ・Strava・ガーミン・YAMAPなどのGPXファイルを読み込むと、通過した市区町村を自動記録します。ドライブ・登山・サイクリングなどの軌跡に対応しています。</p>
+        <button class="export-btn primary" onclick="document.getElementById('gpx-input').click()">
+          🏃 GPXファイルを読み込む
+        </button>
+        <input type="file" id="gpx-input" accept=".gpx,.xml" style="display:none" onchange="importGPX(this)">
+        <div id="gpx-result" style="font-size:.74rem;color:#555;margin-top:6px;min-height:16px;line-height:1.7"></div>
+        <hr class="export-divider">
+        <h3>⚠️ データ削除</h3>
+        <p>すべての訪問記録を削除します。地図データのキャッシュは残ります。</p>
+        <button class="export-danger" onclick="clearAllData()">🗑️ すべての記録を削除</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const S_LABELS=['未訪問','通過した','立ち寄った','歩き回った','泊まった','住んだ'];
+const S_PTS=[0,1,2,3,4,5];
+const S_COLORS=['#dedad2','#a8d8a8','#5cb85c','#f0c040','#e8834a','#c84b31'];
+const PREF_NAMES=['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+let cityData={},selLevel=0,selCity=null,geojsonLayer=null,prefBorderLayer=null,map=null,allFeatures=[];
+let _pendingCity=null,_pendingPref=null; // セットアップ中のバッファ
+let gpsWatchId=null,gpsMarker=null,gpsTracking=false;
+let TILE_LAYERS={};       // 地図タイルレイヤー
+let currentTileLayer=null;
+// ── Undo/Redo ──
+const HISTORY_MAX=50;
+let undoStack=[]; // スナップショット履歴
+let redoStack=[];
+
+function pushHistory(){
+  undoStack.push(JSON.stringify(cityData));
+  if(undoStack.length>HISTORY_MAX) undoStack.shift();
+  redoStack=[];  // 新操作でredoをクリア
+  updateUndoBtn();
+}
+function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(JSON.stringify(cityData));
+  cityData=JSON.parse(undoStack.pop());
+  saveData();
+  if(geojsonLayer) geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+  if(selCity) renderMemo();
+  updateUndoBtn();
+  showToast('↩ 取り消しました');
+}
+function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(JSON.stringify(cityData));
+  cityData=JSON.parse(redoStack.pop());
+  saveData();
+  if(geojsonLayer) geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+  if(selCity) renderMemo();
+  updateUndoBtn();
+  showToast('↪ やり直しました');
+}
+function updateUndoBtn(){
+  const u=document.getElementById('undo-btn');
+  const r=document.getElementById('redo-btn');
+  if(u) u.disabled=undoStack.length===0;
+  if(r) r.disabled=redoStack.length===0;
+}
+
+let selMode=false;
+let selCodes=new Set(); // 選択中の市区町村コードset
+// 自動取得するGeoJSONのURL（フォールバック付き）
+const CITY_GEOJSON_URLS=[
+  'https://raw.githubusercontent.com/smartnews-smri/japan-topography/main/data/municipality/geojson/s0010/N03-21_210101.json',
+  'https://cdn.jsdelivr.net/gh/smartnews-smri/japan-topography@main/data/municipality/geojson/s0010/N03-21_210101.json',
+];
+const PREF_GEOJSON_URLS=[
+  'https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson',
+  'https://cdn.jsdelivr.net/gh/dataofjapan/land@master/japan.geojson',
+];
+
+const SEL_STYLE={fillColor:'#2979ff',fillOpacity:0.55,weight:2,color:'#1565c0',opacity:1};
+
+function loadData(){try{const r=localStorage.getItem('keishichi_v3');if(r)cityData=JSON.parse(r)}catch(e){cityData={}}}
+function saveData(){try{localStorage.setItem('keishichi_v3',JSON.stringify(cityData))}catch(e){}}
+function getRecord(code){return cityData[code]||{history:[]}}
+function maxStatus(code){const h=getRecord(code).history;return h.length?Math.max(...h.map(e=>e.status||0)):0}
+function calcScore(){return Object.keys(cityData).reduce((s,c)=>s+S_PTS[maxStatus(c)],0)}
+function updateScore(){document.getElementById('total-score').textContent=calcScore()}
+function updateStats(){
+  const v=Object.keys(cityData).filter(c=>maxStatus(c)>0).length;
+  const e=Object.values(cityData).reduce((s,r)=>s+(r.history||[]).length,0);
+  document.getElementById('s-visited').textContent=v;
+  document.getElementById('s-total').textContent=allFeatures.length||'—';
+  document.getElementById('s-entries').textContent=e;
+}
+
+function getCode(f){return f.properties.N03_007||f.properties.code||''}
+function getName(f){return f.properties.N03_004||f.properties.N03_003||f.properties.name||getCode(f)}
+function getPref(f){return f.properties.N03_001||''}
+function colorFor(code){return S_COLORS[maxStatus(code)]}
+function styleCity(f){return{fillColor:colorFor(getCode(f)),weight:0.4,color:'#bbb',fillOpacity:.85,opacity:1}}
+function styleDim(f){return{fillColor:colorFor(getCode(f)),weight:0.3,color:'#ccc',fillOpacity:.2,opacity:.3}}
+function styleFocus(f){return{fillColor:colorFor(getCode(f)),weight:2.5,color:'#333',fillOpacity:.95,opacity:1}}
+
+// 全レイヤーをディム or 通常に戻す
+// focusCode: 通常表示する市区町村コード（nullなら全部通常）
+// focusPc: 通常表示する都道府県コード（nullなら無視）
+function applyDimAll(focusCode, focusPc){
+  dimFocusCode=focusCode;
+  dimFocusPc=focusPc;
+  if(!geojsonLayer) return;
+  geojsonLayer.eachLayer(l=>{
+    if(!l.feature) return;
+    const code=getCode(l.feature);
+    const pc=parseInt(String(code).slice(0,2));
+    if(focusCode && code===focusCode){
+      l.setStyle(styleFocus(l.feature));
+    } else if(!focusCode && focusPc && pc===focusPc){
+      // 都道府県選択時：その都道府県内は通常
+      l.setStyle(styleCity(l.feature));
+    } else {
+      l.setStyle(styleDim(l.feature));
+    }
+  });
+}
+function clearDim(){
+  dimFocusCode=null;
+  dimFocusPc=null;
+  if(!geojsonLayer) return;
+  geojsonLayer.eachLayer(l=>{if(l.feature) geojsonLayer.resetStyle(l)});
+}
+
+// 都道府県境界（太め）を別レイヤーで重ねる
+// 都道府県GeoJSON（海岸線含む）を使って境界線を描画
+// ズームレベルに応じて線の太さを動的に変える
+function buildPrefBorders(prefGeojson){
+  if(prefBorderLayer){map.removeLayer(prefBorderLayer);prefBorderLayer=null}
+  if(!prefGeojson)return;
+  prefBorderLayer=L.geoJSON(prefGeojson,{
+    style:prefBorderStyle(),
+    interactive:false
+  }).addTo(map);
+  // ズーム変更時に線の太さを更新
+  map.off('zoomend.prefborder');
+  map.on('zoomend.prefborder',()=>{
+    if(prefBorderLayer) prefBorderLayer.setStyle(prefBorderStyle());
+  });
+}
+function prefBorderStyle(){
+  const z=map?map.getZoom():5;
+  // ズームが小さいほど細く（縮小時に埋もれないが邪魔にならない）
+  const w=z<=5?0.8:z<=7?1.2:z<=9?1.6:2.0;
+  return{color:'#333',weight:w,opacity:0.6,fill:false,fillOpacity:0};
+}
+// 市区町村GeoJSONのみで起動した場合のフォールバック（辺抽出）
+function buildPrefBordersFromCity(cityGeojson){
+  if(prefBorderLayer){map.removeLayer(prefBorderLayer);prefBorderLayer=null}
+  const edgeMap={};
+  function addEdge(a,b,pc){
+    const r=v=>Math.round(v*10000)/10000;
+    const p1=r(a[0])+','+r(a[1]),p2=r(b[0])+','+r(b[1]);
+    const key=p1<p2?p1+'|'+p2:p2+'|'+p1;
+    if(!edgeMap[key])edgeMap[key]=new Set();
+    edgeMap[key].add(pc);
+  }
+  function procRing(ring,pc){for(let i=0;i<ring.length-1;i++)addEdge(ring[i],ring[i+1],pc)}
+  function procGeom(g,pc){
+    if(!g)return;
+    if(g.type==='Polygon')g.coordinates.forEach(r=>procRing(r,pc));
+    else if(g.type==='MultiPolygon')g.coordinates.forEach(p=>p.forEach(r=>procRing(r,pc)));
+  }
+  (cityGeojson.features||[]).forEach(f=>procGeom(f.geometry,parseInt(String(getCode(f)).slice(0,2))));
+  const segs=[];
+  Object.entries(edgeMap).forEach(([key,pcs])=>{
+    if(pcs.size>=2){
+      const[p1s,p2s]=key.split('|');
+      const[x1,y1]=p1s.split(',').map(Number);
+      const[x2,y2]=p2s.split(',').map(Number);
+      segs.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[x1,y1],[x2,y2]]}});
+    }
+  });
+  prefBorderLayer=L.geoJSON({type:'FeatureCollection',features:segs},{
+    style:prefBorderStyle(),
+    interactive:false
+  }).addTo(map);
+  map.off('zoomend.prefborder');
+  map.on('zoomend.prefborder',()=>{if(prefBorderLayer)prefBorderLayer.setStyle(prefBorderStyle())});
+}
+
+function onEach(feature,layer){
+  layer.on({
+    mouseover(e){
+      const code=getCode(feature);
+      if(selCodes.has(code)) return; // 選択中はhoverスタイル変更しない
+      // ディム中でもhoverは効かせる（薄い状態から少し濃く）
+      e.target.setStyle({weight:1.5,color:'#333',fillOpacity:.7});
+      layer.bindTooltip(`<div style="background:#1a1a2e;color:#f5f0e8;padding:4px 8px;border-radius:4px;font-size:.72rem;white-space:nowrap">${getPref(feature)} ${getName(feature)}</div>`,{sticky:true,className:'',offset:[10,0]}).openTooltip();
+    },
+    mouseout(e){
+      const code=getCode(feature);
+      const pc=parseInt(String(code).slice(0,2));
+      if(selCodes.has(code)){
+        e.target.setStyle(SEL_STYLE);
+      } else if(dimFocusCode||dimFocusPc){
+        // ディム中はフォーカス状態に応じてスタイルを戻す
+        if(dimFocusCode && code===dimFocusCode){
+          e.target.setStyle(styleFocus(feature));
+        } else if(!dimFocusCode && dimFocusPc && pc===dimFocusPc){
+          e.target.setStyle(styleCity(feature));
+        } else {
+          e.target.setStyle(styleDim(feature));
+        }
+      } else {
+        geojsonLayer.resetStyle(e.target);
+      }
+      layer.closeTooltip();
+    },
+    click(){
+      const code=getCode(feature),name=getName(feature),pref=getPref(feature);
+      // 選択モード
+      if(selMode){
+        toggleSelCode(code,layer);
+        return;
+      }
+      // 通常モード
+      if(selLevel>0){
+        if(!cityData[code])cityData[code]={history:[]};
+        const today=new Date().toISOString().slice(0,10);
+        const dup=cityData[code].history.find(h=>h.date===today&&h.status===selLevel);
+        if(!dup){
+          pushHistory();
+          cityData[code].history.push({id:Date.now(),status:selLevel,date:today,memo:''});
+          saveData();refreshLayer(code);updateScore();updateStats();updatePrefList();
+          showToast(`${name} →「${S_LABELS[selLevel]}」に記録`);
+        }
+      }
+      // openCityFromPrefと完全統一（ディム＋ズーム）
+      openCityFromPref(code,name,pref);
+    }
+  });
+}
+function refreshLayer(code){
+  if(!geojsonLayer)return;
+  geojsonLayer.eachLayer(l=>{
+    if(l.feature&&getCode(l.feature)===code){
+      geojsonLayer.resetStyle(l);
+      // 選択中なら青いスタイルを再適用
+      if(selCodes.has(code)) l.setStyle(SEL_STYLE);
+    }
+  });
+}
+
+function initMap(){
+  if(map)return;
+  map=L.map('map',{
+    center:[37,137],zoom:5,preferCanvas:false,zoomControl:false,
+    maxBounds:[[20,120],[50,155]],  // 日本周辺に制限
+    maxBoundsViscosity:1.0,         // 範囲外に出られない
+    minZoom:4, maxZoom:18
+  });
+  L.control.zoom({position:'bottomright'}).addTo(map);
+
+  // タイルレイヤーをグローバル変数に登録（switchLayerから参照できるよう）
+  TILE_LAYERS.blank=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:18,opacity:.45
+  });
+  TILE_LAYERS.osm=L.tileLayer('https://tile.openstreetmap.jp/styles/osm-bright/512/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap contributors',maxZoom:18,opacity:.65,tileSize:512,zoomOffset:-1
+  });
+  TILE_LAYERS.gsi=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{
+    attribution:'© 国土地理院',maxZoom:18,opacity:.7
+  });
+  currentTileLayer=TILE_LAYERS.blank;
+  currentTileLayer.addTo(map);
+
+  // 地図（海・空白）クリックでディム解除
+  map.on('click',()=>{
+    if(dimFocusCode||dimFocusPc){
+      clearDim();
+      if(cityHighlightLayer){map.removeLayer(cityHighlightLayer);cityHighlightLayer=null;}
+    }
+  });
+}
+function buildLayer(geojson){
+  allFeatures=geojson.features||[];
+  if(geojsonLayer)map.removeLayer(geojsonLayer);
+  geojsonLayer=L.geoJSON(geojson,{style:styleCity,onEachFeature:onEach}).addTo(map);
+  // 都道府県GeoJSONがキャッシュされていれば使用、なければ辺抽出フォールバック
+  try{
+    const pc=localStorage.getItem('keishichi_pref_cache');
+    if(pc)buildPrefBorders(JSON.parse(pc));
+    else buildPrefBordersFromCity(geojson);
+  }catch(e){buildPrefBordersFromCity(geojson)}
+  updateScore();updateStats();updatePrefList();
+}
+
+// ファイル選択UI廃止（v7.0より自動取得方式に変更）
+
+// ファイルが都道府県データかどうかの判定
+// 市区町村データ: N03_007(7桁コード)を持つ / features数が多い(>100)
+// 都道府県データ(dataofjapan): features数が47件程度 / name_local等のプロパティ
+function isPrefGeojson(geojson){
+  const features=geojson.features||[];
+  if(features.length>0 && features.length<=60) return true;
+  const p=(features[0]||{}).properties||{};
+  if(p.N03_007) return false;
+  if(p.name_local||p.nam_ja||p.name) return true;
+  return false;
+}
+
+function handleSetupFiles(files){
+  const arr=Array.from(files);
+  if(!arr.length)return;
+  setStatus('読み込み中…','#888');
+  let loaded=0;
+  arr.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const gj=JSON.parse(ev.target.result);
+        const isPref=isPrefGeojson(gj);
+        console.log(file.name,'isPref:',isPref,'features:',(gj.features||[]).length);
+        if(isPref){
+          _pendingPref=gj;
+          try{localStorage.setItem('keishichi_pref_cache',ev.target.result)}catch(e){}
+        } else {
+          _pendingCity=gj;
+          try{localStorage.setItem('keishichi_geojson_cache',ev.target.result)}catch(e){}
+        }
+      }catch(err){console.error('parse error:',file.name,err)}
+      loaded++;
+      if(loaded===arr.length) autoStart();
+    };
+    reader.onerror=()=>{loaded++;if(loaded===arr.length)autoStart()};
+    reader.readAsText(file);
+  });
+}
+
+function setLoadStatus(msg, pct){
+  const el=document.getElementById('load-status');
+  if(el) el.textContent=msg;
+  if(pct!=null){
+    document.getElementById('load-bar').style.width=pct+'%';
+  }
+}
+
+function setStatus(msg,color){
+  const el=document.getElementById('setup-status');
+  if(el){el.textContent=msg;el.style.color=color||'#888';}
+  const dt=document.getElementById('drop-txt');
+  if(dt) dt.textContent=msg;
+}
+
+function autoStart(){
+  if(_pendingCity && _pendingPref){
+    setStatus('✅ 2ファイル確認！起動します…','#2e7d32');
+  } else if(_pendingCity){
+    setStatus('✅ 市区町村データ確認。起動します…','#e65100');
+  } else {
+    setStatus('❌ 市区町村データが見つかりません。①のファイルを確認してください','#c84b31');
+    return;
+  }
+  // 少し待ってから起動（UIが更新されるのを待つ）
+  setTimeout(()=>{
+    try{ finishSetup(); }
+    catch(e){ setStatus('❌ 起動エラー: '+e.message,'#c84b31'); console.error(e); }
+  }, 100); // initMapはwindow.loadで実行済みなので短くてOK
+}
+
+function finishSetup(){
+  if(!_pendingCity)return;
+  try{
+    initMap();
+    buildLayer(_pendingCity);
+    if(_pendingPref) buildPrefBorders(_pendingPref);
+    document.getElementById('setup-screen').style.display='none';
+  }catch(e){
+    setStatus('❌ 起動エラー: '+e.message,'#c84b31');
+    console.error('finishSetup error:',e);
+  }
+}
+function loadDemo(){
+  const C=[
+    ['01000','北海道','北海道',43.06,141.35],['02000','青森市','青森県',40.82,140.74],['03000','盛岡市','岩手県',39.70,141.15],
+    ['04000','仙台市','宮城県',38.27,140.87],['05000','秋田市','秋田県',39.72,140.10],['06000','山形市','山形県',38.24,140.36],
+    ['07000','福島市','福島県',37.76,140.47],['08000','水戸市','茨城県',36.34,140.45],['09000','宇都宮市','栃木県',36.56,139.88],
+    ['10000','前橋市','群馬県',36.39,139.06],['11000','さいたま市','埼玉県',35.86,139.65],['12000','千葉市','千葉県',35.61,140.12],
+    ['13000','新宿区','東京都',35.69,139.69],['14000','横浜市','神奈川県',35.44,139.64],['15000','新潟市','新潟県',37.91,139.04],
+    ['16000','富山市','富山県',36.70,137.21],['17000','金沢市','石川県',36.59,136.63],['18000','福井市','福井県',36.06,136.22],
+    ['19000','甲府市','山梨県',35.66,138.57],['20000','長野市','長野県',36.65,138.18],['21000','岐阜市','岐阜県',35.39,136.72],
+    ['22000','静岡市','静岡県',34.98,138.38],['23000','名古屋市','愛知県',35.18,136.91],['24000','津市','三重県',34.73,136.51],
+    ['25000','大津市','滋賀県',35.00,135.87],['26000','京都市','京都府',35.02,135.76],['27000','大阪市','大阪府',34.69,135.50],
+    ['28000','神戸市','兵庫県',34.69,135.20],['29000','奈良市','奈良県',34.68,135.83],['30000','和歌山市','和歌山県',34.23,135.17],
+    ['31000','鳥取市','鳥取県',35.50,134.24],['32000','松江市','島根県',35.47,133.06],['33000','岡山市','岡山県',34.66,133.93],
+    ['34000','広島市','広島県',34.39,132.45],['35000','山口市','山口県',34.19,131.47],['36000','徳島市','徳島県',34.07,134.56],
+    ['37000','高松市','香川県',34.34,134.04],['38000','松山市','愛媛県',33.84,132.77],['39000','高知市','高知県',33.56,133.53],
+    ['40000','福岡市','福岡県',33.59,130.40],['41000','佐賀市','佐賀県',33.26,130.30],['42000','長崎市','長崎県',32.74,129.87],
+    ['43000','熊本市','熊本県',32.79,130.74],['44000','大分市','大分県',33.24,131.61],['45000','宮崎市','宮崎県',31.91,131.42],
+    ['46000','鹿児島市','鹿児島県',31.60,130.56],['47000','那覇市','沖縄県',26.21,127.68]
+  ];
+  const d=0.3;
+  const features=C.map(([code,n,p,lat,lng])=>({
+    type:'Feature',properties:{N03_007:code,N03_004:n,N03_001:p},
+    geometry:{type:'Polygon',coordinates:[[[lng-d,lat-d],[lng+d,lat-d],[lng+d,lat+d],[lng-d,lat+d],[lng-d,lat-d]]]}
+  }));
+  initMap();buildLayer({type:'FeatureCollection',features});
+  document.getElementById('setup-screen').style.display='none';
+}
+
+function showTab(name){
+  const names=['legend','pref','memo','hlist','bulk','export'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  if(name==='hlist')renderHlist();
+  if(name==='bulk')renderBulkGrid();
+  if(name==='pref')renderPrefList();
+}
+const sheet=document.getElementById('sheet');
+const handle=document.getElementById('sheet-handle');
+let dragY=null;
+function openSheet(){if(window.innerWidth<700)sheet.classList.add('peek')}
+function toggleSheet(){
+  if(window.innerWidth>=700)return;
+  if(sheet.classList.contains('open')){sheet.classList.remove('open');sheet.classList.add('peek')}
+  else if(sheet.classList.contains('peek')){sheet.classList.add('open')}
+  else{sheet.classList.add('peek')}
+}
+handle.addEventListener('click',toggleSheet);
+handle.addEventListener('touchstart',e=>{dragY=e.touches[0].clientY},{passive:true});
+handle.addEventListener('touchend',e=>{
+  if(dragY===null)return;
+  const dy=dragY-e.changedTouches[0].clientY;
+  if(dy>40){sheet.classList.add('open');sheet.classList.remove('peek')}
+  else if(dy<-40){sheet.classList.remove('open','peek')}
+  dragY=null;
+},{passive:true});
+
+function pickLevel(lv){selLevel=lv;document.querySelectorAll('.legend-item').forEach(el=>el.classList.toggle('sel',parseInt(el.dataset.lv)===lv))}
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── 都道府県タブ ──
+let currentPrefCode=null;
+let prefHighlightLayer=null;   // 都道府県強調レイヤー
+let cityHighlightLayer=null;   // 市区町村強調レイヤー
+let dimFocusCode=null;         // ディム中のフォーカス市区町村コード
+let dimFocusPc=null;           // ディム中のフォーカス都道府県コード
+let prefDetailTab='visited';
+
+function getPrefStats(pc){
+  const features=allFeatures.filter(f=>parseInt(String(getCode(f)).slice(0,2))===pc);
+  const total=features.length;
+  const visited=features.filter(f=>maxStatus(getCode(f))>0).length;
+  let score=0; features.forEach(f=>score+=S_PTS[maxStatus(getCode(f))]);
+  const maxScore=total*5;
+  const pct=maxScore?Math.round(score/maxScore*100):0;
+  const stCounts=[0,0,0,0,0,0];
+  features.forEach(f=>stCounts[maxStatus(getCode(f))]++);
+  return{total,visited,score,maxScore,pct,stCounts,features};
+}
+
+function renderPrefList(){
+  const sortKey=document.getElementById('pref-sort-key')?.value||'code';
+  let items=PREF_NAMES.map((name,i)=>{
+    const pc=i+1;
+    const st=getPrefStats(pc);
+    return{name,pc,...st};
+  });
+  if(sortKey==='vrate-desc') items.sort((a,b)=>(b.visited/Math.max(b.total,1))-(a.visited/Math.max(a.total,1))||a.pc-b.pc);
+  else if(sortKey==='vrate-asc') items.sort((a,b)=>(a.visited/Math.max(a.total,1))-(b.visited/Math.max(b.total,1))||a.pc-b.pc);
+  else if(sortKey==='visited-desc') items.sort((a,b)=>b.visited-a.visited||a.pc-b.pc);
+  else if(sortKey==='visited-asc') items.sort((a,b)=>a.visited-b.visited||a.pc-b.pc);
+  else if(sortKey==='rate-desc') items.sort((a,b)=>b.pct-a.pct||a.pc-b.pc);
+  else if(sortKey==='rate-asc') items.sort((a,b)=>a.pct-b.pct||a.pc-b.pc);
+  else items.sort((a,b)=>a.pc-b.pc);
+
+  const list=document.getElementById('pref-list');
+  list.innerHTML='';
+  items.forEach(({name,pc,visited,total,pct,score,maxScore})=>{
+    const row=document.createElement('div');
+    row.className='pref-row'+(currentPrefCode===pc?' open':'');
+    row.dataset.pc=pc;
+    const sortKey2=document.getElementById('pref-sort-key')?.value||'code';
+    const visitedPct=total>0?Math.round(visited/total*100):0;
+    const scorePct=maxScore>0?Math.round(score/maxScore*100):0;
+    // モード判定
+    const isVisitedCount=sortKey2==='visited-desc'||sortKey2==='visited-asc';
+    const isVRate=sortKey2==='vrate-desc'||sortKey2==='vrate-asc';
+    const isScore=sortKey2==='rate-desc'||sortKey2==='rate-asc';
+    // バーの太さ
+    const bar1H=isVRate?6:isScore?3:4; // 訪問率バー
+    const bar2H=isScore?6:isVRate?3:4; // 点数バー
+    // 訪問数ソート時はバーを薄く
+    const vAlpha=isVisitedCount?'#b8d0ef':'#2979ff';
+    const sAlpha=isVisitedCount?'#e8b8b4':'var(--accent)';
+    const vBg=isVisitedCount?'#eef3fa':'#dde8f5';
+    const sBg=isVisitedCount?'#f7eeee':'#f0dbd8';
+    // 件数テキストの強調（訪問数ソート時）
+    const cntStyle=isVisitedCount
+      ?'font-size:.82rem;font-weight:700;color:var(--ink);min-width:72px;text-align:right'
+      :'font-size:.68rem;color:#888;min-width:72px;text-align:right';
+    const cntSuffix=isVisitedCount
+      ?`<span style="font-size:.62rem;font-weight:400;color:#aaa">市区町村</span>`
+      :`<span style="color:#ccc;font-size:.6rem">件</span>`;
+    row.innerHTML=`
+      <span class="pref-name">${name}</span>
+      <div class="pref-bars">
+        <div style="height:${bar1H}px;background:${vBg};border-radius:3px;overflow:hidden">
+          <div style="width:${visitedPct}%;height:100%;background:${vAlpha};border-radius:3px;transition:width .4s"></div>
+        </div>
+        <div style="height:${bar2H}px;background:${sBg};border-radius:3px;overflow:hidden;margin-top:2px">
+          <div style="width:${scorePct}%;height:100%;background:${sAlpha};border-radius:3px;transition:width .4s"></div>
+        </div>
+      </div>
+      <span style="${cntStyle}">${visited}/${total}${cntSuffix}</span>`;
+    row.onclick=()=>selectPref(pc);
+    list.appendChild(row);
+  });
+}
+// updatePrefList は renderPrefList の別名
+function updatePrefList(){renderPrefList();}
+
+function selectPref(pc){
+  currentPrefCode=pc;
+  const fs=allFeatures.filter(f=>parseInt(String(getCode(f)).slice(0,2))===pc);
+
+  // 地図ズーム（都道府県の広さに応じて自動調整、paddingを大きめに）
+  if(map&&fs.length){
+    try{
+      const bounds=L.geoJSON({type:'FeatureCollection',features:fs}).getBounds();
+      const center=bounds.getCenter();
+      map.flyTo(center,map.getBoundsZoom(bounds,false,[60,60]),{duration:.8});
+    }catch(e){}
+  }
+
+  // 全国をディム（選択都道府県内は通常表示）
+  applyDimAll(null, pc);
+
+  // 都道府県の外周枠はprefBorderLayerに任せ、ここでは枠を追加しない
+  // （市区町村ごとにレイヤーを重ねると内部境界も太くなるため廃止）
+  if(prefHighlightLayer){map.removeLayer(prefHighlightLayer);prefHighlightLayer=null;}
+
+  openPrefDetail(pc);
+  document.querySelectorAll('#pref-list .pref-row').forEach(r=>{
+    r.classList.toggle('open',parseInt(r.dataset.pc)===pc);
+  });
+  const d=document.getElementById('pref-bulk-date');
+  if(d&&!d.value) d.value=new Date().toISOString().slice(0,10);
+}
+
+function openPrefDetail(pc){
+  const st=getPrefStats(pc);
+  const name=PREF_NAMES[pc-1];
+  document.getElementById('pref-detail-name').textContent=name;
+  const vPct=st.total>0?Math.round(st.visited/st.total*100):0;
+  document.getElementById('pref-ach-bar-v').style.width=vPct+'%';
+  document.getElementById('pref-ach-bar-s').style.width=st.pct+'%';
+  document.getElementById('pref-ach-vpct').textContent=vPct+'%';
+  document.getElementById('pref-ach-spct').textContent=st.pct+'%';
+  document.getElementById('pref-ach-txt').textContent=`${st.visited}/${st.total}市区町村`;
+  // ステータス別グリッド
+  const grid=document.getElementById('pref-status-grid');
+  grid.innerHTML=S_LABELS.slice(1).map((lbl,i)=>{
+    const cnt=st.stCounts[i+1];
+    return `<div class="pref-status-cell" style="background:${S_COLORS[i+1]}22">
+      <span class="sc-count" style="color:${S_COLORS[i+1]}">${cnt}</span>${lbl}
+    </div>`;
+  }).join('');
+  document.getElementById('pref-detail').classList.add('open');
+  renderPrefDetailBody(pc);
+}
+
+function closePrefDetail(){
+  document.getElementById('pref-detail').classList.remove('open');
+  currentPrefCode=null;
+  if(prefHighlightLayer){map.removeLayer(prefHighlightLayer);prefHighlightLayer=null;}
+  if(cityHighlightLayer){map.removeLayer(cityHighlightLayer);cityHighlightLayer=null;}
+  clearDim();
+  document.querySelectorAll('#pref-list .pref-row').forEach(r=>r.classList.remove('open'));
+}
+
+function switchPrefDetailTab(tab){
+  prefDetailTab=tab;
+  document.querySelectorAll('.pref-detail-tab').forEach((b,i)=>{
+    b.classList.toggle('active',['visited','unvisited','all'][i]===tab);
+  });
+  if(currentPrefCode) renderPrefDetailBody(currentPrefCode);
+}
+
+function renderPrefDetailBody(pc){
+  const st=getPrefStats(pc);
+  const body=document.getElementById('pref-detail-body');
+  let features=st.features;
+  if(prefDetailTab==='visited') features=features.filter(f=>maxStatus(getCode(f))>0);
+  else if(prefDetailTab==='unvisited') features=features.filter(f=>maxStatus(getCode(f))===0);
+  if(!features.length){
+    body.innerHTML=`<div style="text-align:center;color:#bbb;font-size:.8rem;padding:20px">${prefDetailTab==='visited'?'訪問記録がありません':'未訪問の市区町村はありません'}</div>`;
+    return;
+  }
+  body.innerHTML=features.map(f=>{
+    const code=getCode(f),name=getName(f);
+    const ms=maxStatus(code);
+    const rec=getRecord(code);
+    const lastDate=rec.history.length?rec.history.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0].date:'';
+    return `<div class="pref-city-item"
+      onclick="openCityFromPref('${code}','${esc(name)}','${esc(PREF_NAMES[pc-1])}')"
+      onmouseenter="hoverCityItem('${code}')"
+      onmouseleave="unhoverCityItem('${code}')">
+      <div class="pref-city-dot" style="background:${S_COLORS[ms]}"></div>
+      <span class="pref-city-name">${name}</span>
+      <span style="font-size:.68rem;color:#888;margin-right:4px">${ms>0?S_LABELS[ms]:''}</span>
+      <span class="pref-city-date">${lastDate}</span>
+    </div>`;
+  }).join('');
+}
+
+// 都道府県詳細リストのホバー時：地図上で軽くハイライト
+function hoverCityItem(code){
+  if(!geojsonLayer) return;
+  // ステータス色を維持したまま枠線だけ太くする
+  const col=S_COLORS[maxStatus(code)];
+  geojsonLayer.eachLayer(l=>{
+    if(l.feature&&getCode(l.feature)===code){
+      l.setStyle({fillColor:col,fillOpacity:.9,weight:2,color:'#333',opacity:1});
+    }
+  });
+}
+function unhoverCityItem(code){
+  if(!geojsonLayer) return;
+  geojsonLayer.eachLayer(l=>{
+    if(l.feature&&getCode(l.feature)===code){
+      // ディム状態に応じて元のスタイルに戻す
+      if(dimFocusCode===code){
+        l.setStyle(styleFocus(l.feature));
+      } else if(dimFocusPc&&!dimFocusCode){
+        const pc=parseInt(String(code).slice(0,2));
+        l.setStyle(pc===dimFocusPc?styleCity(l.feature):styleDim(l.feature));
+      } else if(dimFocusCode){
+        l.setStyle(styleDim(l.feature));
+      } else {
+        geojsonLayer.resetStyle(l);
+      }
+    }
+  });
+}
+
+function openCityFromPref(code,name,pref){
+  selCity={code,name,pref};renderMemo();showTab('memo');openSheet();
+
+  // 全国をディム・選択市区町村だけフォーカス
+  applyDimAll(code, null);
+
+  if(geojsonLayer){
+    geojsonLayer.eachLayer(l=>{
+      if(l.feature&&getCode(l.feature)===code){
+        try{
+          const center=l.getBounds().getCenter();
+          const z=Math.min(Math.max(map.getZoom(),9),11);
+          map.flyTo(center,z,{duration:.5});
+        }catch(e){}
+      }
+    });
+  }
+  if(cityHighlightLayer){map.removeLayer(cityHighlightLayer);cityHighlightLayer=null;}
+}
+
+function prefBulkAdd(){
+  if(!currentPrefCode)return;
+  const status=parseInt(document.getElementById('pref-bulk-status').value);
+  const date=document.getElementById('pref-bulk-date').value||new Date().toISOString().slice(0,10);
+  const features=allFeatures.filter(f=>parseInt(String(getCode(f)).slice(0,2))===currentPrefCode);
+  pushHistory();
+  let added=0,skipped=0;
+  features.forEach(f=>{
+    const code=getCode(f);
+    if(!cityData[code])cityData[code]={history:[]};
+    const dup=cityData[code].history.find(h=>h.date===date&&h.status===status);
+    if(dup){skipped++;return;}
+    cityData[code].history.push({id:Date.now()+Math.random(),status,date,dateTo:'',memo:`📋 ${PREF_NAMES[currentPrefCode-1]}一括登録`});
+    added++;
+  });
+  saveData();
+  if(geojsonLayer)geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();renderPrefList();
+  openPrefDetail(currentPrefCode);
+  showToast(`${PREF_NAMES[currentPrefCode-1]}: ${added}件登録`);
+}
+
+function prefBulkDel(){
+  if(!currentPrefCode)return;
+  const name=PREF_NAMES[currentPrefCode-1];
+  if(!confirm(`${name}のすべての記録を削除しますか？`))return;
+  const features=allFeatures.filter(f=>parseInt(String(getCode(f)).slice(0,2))===currentPrefCode);
+  pushHistory();
+  features.forEach(f=>{
+    const code=getCode(f);
+    if(cityData[code]){delete cityData[code];}
+    refreshLayer(code);
+  });
+  saveData();updateScore();updateStats();renderPrefList();
+  openPrefDetail(currentPrefCode);
+  showToast(`${name}の記録を削除しました`);
+}
+
+function flyToPref(pc){selectPref(pc);}
+
+// ── 検索機能 ──
+let searchIdx=0; // キーボード選択インデックス
+function onSearchInput(val){
+  const q=val.trim();
+  const dd=document.getElementById('search-dropdown');
+  if(!q){dd.classList.remove('open');return;}
+  const results=allFeatures
+    .filter(f=>getName(f).includes(q)||getPref(f).includes(q))
+    .slice(0,12);
+  if(!results.length){dd.classList.remove('open');return;}
+  searchIdx=0;
+  dd.innerHTML=results.map((f,i)=>
+    `<div class="search-item${i===0?' active':''}" data-i="${i}"
+      onclick="selectSearchResult(${allFeatures.indexOf(f)})">
+      ${getName(f)}<span class="si-pref">${getPref(f)}</span>
+    </div>`
+  ).join('');
+  dd._results=results;
+  dd.classList.add('open');
+}
+function onSearchKey(e){
+  const dd=document.getElementById('search-dropdown');
+  const items=dd.querySelectorAll('.search-item');
+  if(!items.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();searchIdx=Math.min(searchIdx+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();searchIdx=Math.max(searchIdx-1,0);}
+  else if(e.key==='Enter'){e.preventDefault();items[searchIdx]?.click();return;}
+  else if(e.key==='Escape'){dd.classList.remove('open');return;}
+  items.forEach((el,i)=>el.classList.toggle('active',i===searchIdx));
+}
+function selectSearchResult(featureIdx){
+  const f=allFeatures[featureIdx];
+  if(!f)return;
+  document.getElementById('search-input').value=getName(f);
+  document.getElementById('search-dropdown').classList.remove('open');
+  // 地図をその市区町村に移動
+  if(geojsonLayer){
+    const code=getCode(f);
+    geojsonLayer.eachLayer(l=>{
+      if(l.feature&&getCode(l.feature)===code){
+        try{
+          const center=l.getBounds().getCenter();
+          const z=Math.min(Math.max(map.getZoom(),9),11);
+          map.flyTo(center,z,{duration:.6});
+        }catch(e){}
+      }
+    });
+  }
+  // メモタブを開く
+  selCity={code:getCode(f),name:getName(f),pref:getPref(f)};
+  renderMemo();showTab('memo');openSheet();
+}
+// 検索欄外クリックで閉じる
+// キーボードショートカット
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key==='z'){e.preventDefault();undo();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))){e.preventDefault();redo();}
+});
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#search-wrap'))
+    document.getElementById('search-dropdown').classList.remove('open');
+});
+
+// ── 一括登録 ──
+let bulkSelPref=new Set();
+function renderBulkGrid(){
+  // 今日の日付をデフォルト設定
+  const dateEl=document.getElementById('bulk-date');
+  if(dateEl&&!dateEl.value) dateEl.value=new Date().toISOString().slice(0,10);
+  const grid=document.getElementById('bulk-pref-grid');
+  grid.innerHTML=PREF_NAMES.map((name,i)=>`
+    <button class="bulk-pref-btn${bulkSelPref.has(i+1)?' sel':''}"
+      onclick="toggleBulkPref(${i+1},this)">${name}</button>
+  `).join('');
+}
+function toggleBulkPref(pc,el){
+  if(bulkSelPref.has(pc)){bulkSelPref.delete(pc);el.classList.remove('sel');}
+  else{bulkSelPref.add(pc);el.classList.add('sel');}
+}
+function applyBulk(){
+  if(!bulkSelPref.size){
+    document.getElementById('bulk-result').textContent='都道府県を選択してください';return;
+  }
+  const status=parseInt(document.getElementById('bulk-status').value);
+  const date=document.getElementById('bulk-date').value||new Date().toISOString().slice(0,10);
+  let added=0,skipped=0;
+  allFeatures.forEach(f=>{
+    const pc=parseInt(String(getCode(f)).slice(0,2));
+    if(!bulkSelPref.has(pc))return;
+    const code=getCode(f);
+    if(!cityData[code])cityData[code]={history:[]};
+    const dup=cityData[code].history.find(h=>h.date===date&&h.status===status);
+    if(dup){skipped++;return;}
+    cityData[code].history.push({id:Date.now()+Math.random(),status,date,dateTo:'',memo:'📋 一括登録'});
+    added++;
+  });
+  saveData();
+  if(geojsonLayer)geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+  document.getElementById('bulk-result').textContent=
+    `✅ ${added}件登録（スキップ: ${skipped}件）`;
+  showToast(`一括登録: ${added}件追加`);
+  bulkSelPref.clear();
+  renderBulkGrid();
+}
+
+function bulkDeleteByStatus(){
+  const status=parseInt(document.getElementById('bulk-del-status').value);
+  const label=S_LABELS[status];
+  if(!confirm(`「${label}」の記録をすべて削除しますか？`))return;
+  let deleted=0;
+  Object.keys(cityData).forEach(code=>{
+    const before=cityData[code].history.length;
+    cityData[code].history=cityData[code].history.filter(h=>h.status!==status);
+    deleted+=before-cityData[code].history.length;
+    if(!cityData[code].history.length)delete cityData[code];
+    refreshLayer(code);
+  });
+  saveData();updateScore();updateStats();updatePrefList();
+  document.getElementById('bulk-result').textContent=`✅ ${deleted}件の記録を削除しました`;
+  showToast(`「${label}」${deleted}件削除`);
+}
+
+function renderMemo(){
+  if(!selCity)return;
+  const{code,name,pref}=selCity,rec=getRecord(code);
+  const histHTML=rec.history.length
+    ?rec.history.slice().reverse().map(h=>`
+      <div class="history-card" id="hcard-${h.id}">
+        <div class="history-dot" style="background:${S_COLORS[h.status||0]}"></div>
+        <div class="history-body">
+          <div class="history-status">${S_LABELS[h.status||0]}</div>
+          <div class="history-date">${h.date||'日付未設定'}${h.dateTo?' 〜 '+h.dateTo:''}</div>
+          ${h.memo?`<div class="history-memo">${esc(h.memo)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="history-edit" onclick="startEditEntry('${code}',${h.id})">✎</button>
+          <button class="history-del" onclick="delEntry('${code}',${h.id})">✕</button>
+        </div>
+      </div>`).join('')
+    :'<div style="font-size:.75rem;color:#bbb;text-align:center;padding:8px">記録なし</div>';
+  const histSection=rec.history.length?`<div class="history-list">${histHTML}</div>`:
+    `<div style="font-size:.75rem;color:#bbb;text-align:center;padding:12px 0">まだ記録がありません</div>`;
+  document.getElementById('memo-wrap').innerHTML=`
+    <div class="memo-city">${name}</div>
+    <div class="memo-pref">${pref}</div>
+    <div class="new-entry">
+      <h4>＋ 新しい記録を追加</h4>
+      <div class="form-row"><div class="form-label">ステータス</div>
+        <select class="form-select" id="f-status">${S_LABELS.map((l,i)=>`<option value="${i}" ${i===selLevel?'selected':''}>${l}（${i}点）</option>`).join('')}</select>
+      </div>
+      <div class="form-row"><div class="form-label">訪問日（開始）</div>
+        <input type="date" class="form-date" id="f-date" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <div class="form-row"><div class="form-label">終了日（宿泊・滞在の場合）</div>
+        <input type="date" class="form-date" id="f-dateto" value="">
+      </div>
+      <div class="form-row"><div class="form-label">メモ</div>
+        <textarea class="form-textarea" id="f-memo" placeholder="思い出・感想など…"></textarea>
+      </div>
+      <button class="save-btn" onclick="addEntry()">この記録を保存</button>
+    </div>
+    ${histSection}`;
+}
+function addEntry(){
+  if(!selCity)return;
+  const{code}=selCity;
+  const status=parseInt(document.getElementById('f-status').value);
+  const date=document.getElementById('f-date').value;
+  const memo=document.getElementById('f-memo').value.trim();
+  if(!cityData[code])cityData[code]={history:[]};
+  const dateTo=document.getElementById('f-dateto')?.value||'';
+  pushHistory();
+  cityData[code].history.push({id:Date.now(),status,date,dateTo,memo});
+  saveData();refreshLayer(code);updateScore();updateStats();updatePrefList();renderMemo();
+  showToast('保存しました');
+}
+function delEntry(code,id){
+  if(!cityData[code])return;
+  if(!confirm('この記録を削除しますか？'))return;
+  pushHistory();
+  cityData[code].history=cityData[code].history.filter(h=>h.id!==id);
+  if(!cityData[code].history.length)delete cityData[code];
+  saveData();refreshLayer(code);updateScore();updateStats();updatePrefList();renderMemo();
+}
+
+function startEditEntry(code,id){
+  if(!cityData[code])return;
+  const h=cityData[code].history.find(e=>e.id===id);
+  if(!h)return;
+  const card=document.getElementById('hcard-'+id);
+  if(!card)return;
+  // カードをインライン編集フォームに差し替え
+  card.innerHTML=`
+    <div class="edit-form" style="width:100%">
+      <div class="form-row"><div class="form-label">ステータス</div>
+        <select class="form-select" id="ef-status-${id}">
+          ${S_LABELS.map((l,i)=>`<option value="${i}" ${i===(h.status||0)?'selected':''}>${l}（${i}点）</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row"><div class="form-label">訪問日（開始）</div>
+        <input type="date" class="form-date" id="ef-date-${id}" value="${h.date||''}">
+      </div>
+      <div class="form-row"><div class="form-label">終了日（宿泊・滞在の場合）</div>
+        <input type="date" class="form-date" id="ef-dateto-${id}" value="${h.dateTo||''}">
+      </div>
+      <div class="form-row"><div class="form-label">メモ</div>
+        <textarea class="form-textarea" id="ef-memo-${id}" style="height:60px">${esc(h.memo||'')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="save-btn" style="flex:2" onclick="saveEditEntry('${code}',${id})">保存</button>
+        <button class="save-btn" style="flex:1;background:#aaa" onclick="renderMemo()">キャンセル</button>
+      </div>
+    </div>`;
+  card.style.flexDirection='column';
+}
+
+function saveEditEntry(code,id){
+  if(!cityData[code])return;
+  const h=cityData[code].history.find(e=>e.id===id);
+  if(!h)return;
+  pushHistory();
+  h.status=parseInt(document.getElementById('ef-status-'+id).value);
+  h.date=document.getElementById('ef-date-'+id).value;
+  h.dateTo=document.getElementById('ef-dateto-'+id).value;
+  h.memo=document.getElementById('ef-memo-'+id).value.trim();
+  saveData();refreshLayer(code);updateScore();updateStats();updatePrefList();renderMemo();
+  showToast('編集を保存しました');
+}
+
+// 履歴一覧
+function renderHlist(){
+  const sort=document.getElementById('hlist-sort').value;
+  const sf=document.getElementById('hlist-sf').value;
+  const codeMap={};
+  allFeatures.forEach(f=>{codeMap[getCode(f)]={name:getName(f),pref:getPref(f)}});
+  let rows=[];
+  Object.entries(cityData).forEach(([code,rec])=>{
+    const info=codeMap[code]||{name:code,pref:''};
+    (rec.history||[]).forEach(h=>{
+      if(sf&&String(h.status)!==sf)return;
+      rows.push({code,name:info.name,pref:info.pref,h});
+    });
+  });
+  if(sort==='date-desc')rows.sort((a,b)=>(b.h.date||'').localeCompare(a.h.date||'')||b.h.id-a.h.id);
+  else if(sort==='date-asc')rows.sort((a,b)=>(a.h.date||'').localeCompare(b.h.date||'')||a.h.id-b.h.id);
+  else if(sort==='status-desc')rows.sort((a,b)=>b.h.status-a.h.status||(b.h.date||'').localeCompare(a.h.date||''));
+  else if(sort==='pref')rows.sort((a,b)=>a.pref.localeCompare(b.pref,'ja')||a.name.localeCompare(b.name,'ja'));
+  const container=document.getElementById('hlist-items');
+  if(!rows.length){container.innerHTML='<div class="hlist-empty">記録がありません</div>';return}
+  container.innerHTML=rows.map(({code,name,pref,h})=>`
+    <div class="hlist-card" onclick="openFromHlist('${code}','${esc(name)}','${esc(pref)}')">
+      <div class="hlist-dot" style="background:${S_COLORS[h.status||0]}"></div>
+      <div class="hlist-body">
+        <div class="hlist-city">${esc(name)}</div>
+        <div class="hlist-pref">${esc(pref)}</div>
+        <div class="hlist-sub">${S_LABELS[h.status||0]}</div>
+        <div class="hlist-date">${h.date||'日付未設定'}${h.dateTo?' 〜 '+h.dateTo:''}</div>
+        ${h.memo?`<div class="hlist-memo">${esc(h.memo)}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+function openFromHlist(code,name,pref){
+  selCity={code,name,pref};renderMemo();showTab('memo');
+  if(geojsonLayer){
+    geojsonLayer.eachLayer(l=>{
+      if(l.feature&&getCode(l.feature)===code){
+        try{map.flyTo(l.getBounds().getCenter(),10,{duration:.6})}catch(e){}
+      }
+    });
+  }
+}
+
+// GPS
+// ── 選択モード ──
+function toggleSelMode(){
+  selMode=!selMode;
+  const btn=document.getElementById('sel-mode-btn');
+  btn.classList.toggle('sel-active',selMode);
+  btn.textContent=selMode?'☑ 選択中':'☑ 選択';
+  if(!selMode) clearSel();
+  // 今日の日付をデフォルト設定
+  const dateEl=document.getElementById('sel-date');
+  if(dateEl&&!dateEl.value) dateEl.value=new Date().toISOString().slice(0,10);
+}
+
+function toggleSelCode(code,layer){
+  if(selCodes.has(code)){
+    selCodes.delete(code);
+    if(layer) geojsonLayer.resetStyle(layer); // 元の色に戻す
+  } else {
+    selCodes.add(code);
+    if(layer) layer.setStyle(SEL_STYLE); // 青いままにする
+  }
+  updateSelBar();
+}
+
+function updateSelBar(){
+  const bar=document.getElementById('sel-bar');
+  const cnt=document.getElementById('sel-count');
+  if(selCodes.size>0){
+    bar.classList.add('open');
+    cnt.textContent=selCodes.size+'件選択中';
+  } else {
+    bar.classList.remove('open');
+  }
+}
+
+function clearSel(){
+  // 選択中レイヤーをすべて元の色に戻す
+  if(geojsonLayer){
+    geojsonLayer.eachLayer(l=>{
+      const code=l.feature&&getCode(l.feature);
+      if(code&&selCodes.has(code)) geojsonLayer.resetStyle(l);
+    });
+  }
+  selCodes.clear();
+  updateSelBar();
+}
+
+function applySelStatus(){
+  if(!selCodes.size){showToast('市区町村を選択してください');return;}
+  const status=parseInt(document.getElementById('sel-status').value);
+  const date=document.getElementById('sel-date').value||new Date().toISOString().slice(0,10);
+  pushHistory();
+  let added=0,skipped=0;
+  selCodes.forEach(code=>{
+    if(!cityData[code])cityData[code]={history:[]};
+    const dup=cityData[code].history.find(h=>h.date===date&&h.status===status);
+    if(dup){skipped++;return;}
+    cityData[code].history.push({id:Date.now()+Math.random(),status,date,dateTo:'',memo:'☑ 選択一括登録'});
+    added++;
+  });
+  saveData();
+  selCodes.forEach(code=>refreshLayer(code));
+  updateScore();updateStats();updatePrefList();
+  showToast(`${added}件登録（スキップ${skipped}件）`);
+  clearSel();
+}
+
+function applySelDelete(){
+  if(!selCodes.size){showToast('市区町村を選択してください');return;}
+  if(!confirm(selCodes.size+'件の市区町村の全記録を削除しますか？'))return;
+  pushHistory();
+  let deleted=0;
+  selCodes.forEach(code=>{
+    if(cityData[code]){delete cityData[code];deleted++;}
+  });
+  saveData();
+  selCodes.forEach(code=>refreshLayer(code));
+  updateScore();updateStats();updatePrefList();
+  showToast(`${deleted}件の記録を削除しました`);
+  clearSel();
+}
+
+// ── 地図レイヤー切り替え ──
+function switchLayer(key){
+  if(!map||!TILE_LAYERS[key]) return;
+  map.removeLayer(currentTileLayer);
+  currentTileLayer=TILE_LAYERS[key];
+  currentTileLayer.addTo(map);
+  // ポリゴンレイヤーを最前面に
+  if(geojsonLayer) geojsonLayer.bringToFront();
+  if(prefBorderLayer) prefBorderLayer.bringToFront();
+  if(prefHighlightLayer) prefHighlightLayer.bringToFront();
+  // ボタン状態更新
+  ['blank','osm','gsi'].forEach(k=>{
+    const btn=document.getElementById('layer-'+k);
+    if(btn) btn.classList.toggle('active',k===key);
+  });
+}
+
+// ── 自動GeoJSON取得 ──
+async function fetchWithFallback(urls, label){
+  for(const url of urls){
+    try{
+      setLoadStatus(`${label}を取得中…`, null);
+      const ctrl=new AbortController();
+      const timer=setTimeout(()=>ctrl.abort(), 15000);
+      const r=await fetch(url,{signal:ctrl.signal});
+      clearTimeout(timer);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text=await r.text();
+      return {text, url};
+    }catch(e){
+      console.warn('fetch failed:', url, e.message);
+    }
+  }
+  throw new Error(`${label}の取得に失敗しました`);
+}
+
+async function startAutoLoad(){
+  document.getElementById('load-retry-btn').style.display='none';
+  document.getElementById('load-spinner').style.display='block';
+  setLoadStatus('地図データを取得中…', 0);
+
+  try{
+    // ① 市区町村GeoJSON
+    setLoadStatus('市区町村データを取得中… (1/2)', 10);
+    const {text: cityText} = await fetchWithFallback(CITY_GEOJSON_URLS, '市区町村データ');
+    setLoadStatus('市区町村データ取得完了 (1/2)', 50);
+    const cityGeoJSON = JSON.parse(cityText);
+    try{ localStorage.setItem('keishichi_geojson_cache', cityText); }catch(e){}
+
+    // ② 都道府県GeoJSON
+    setLoadStatus('都道府県境界データを取得中… (2/2)', 55);
+    let prefGeoJSON=null;
+    try{
+      const {text: prefText} = await fetchWithFallback(PREF_GEOJSON_URLS, '都道府県データ');
+      prefGeoJSON=JSON.parse(prefText);
+      try{ localStorage.setItem('keishichi_pref_cache', prefText); }catch(e){}
+      setLoadStatus('都道府県データ取得完了 (2/2)', 90);
+    }catch(e){
+      console.warn('pref geojson fetch failed:', e);
+      setLoadStatus('都道府県境界データの取得をスキップ（市区町村のみで起動）', 85);
+    }
+
+    setLoadStatus('地図を描画中…', 95);
+    buildLayer(cityGeoJSON);
+    if(prefGeoJSON) buildPrefBorders(prefGeoJSON);
+    setLoadStatus('完了！', 100);
+    setTimeout(()=>{ document.getElementById('setup-screen').style.display='none'; }, 300);
+
+  }catch(e){
+    console.error('autoload error:', e);
+    setLoadStatus('❌ '+e.message+'
+
+Wi-Fiまたはモバイルデータの接続を確認してください', null);
+    document.getElementById('load-spinner').style.display='none';
+    document.getElementById('load-retry-btn').style.display='block';
+  }
+}
+
+function toggleGPS(){if(gpsTracking)stopGPS();else startGPS()}
+function startGPS(){
+  if(!navigator.geolocation){showToast('このブラウザはGPSに対応していません');return}
+  document.getElementById('gps-btn').textContent='⏳ 取得中…';
+  gpsWatchId=navigator.geolocation.watchPosition(
+    pos=>{
+      const{latitude:lat,longitude:lng}=pos.coords;
+      gpsTracking=true;
+      const btn=document.getElementById('gps-btn');
+      btn.classList.add('tracking');btn.textContent='📍 追跡中';
+      if(!gpsMarker){
+        const icon=L.divIcon({className:'',html:'<div class="gps-pulse"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+        gpsMarker=L.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(map);
+        map.panTo([lat,lng]);
+      }else{gpsMarker.setLatLng([lat,lng])}
+    },
+    err=>{
+      stopGPS();
+      const m={1:'位置情報の権限を許可してください',2:'位置情報を取得できませんでした',3:'タイムアウトしました'};
+      showToast(m[err.code]||'GPS取得に失敗しました');
+    },
+    {enableHighAccuracy:true,timeout:10000,maximumAge:5000}
+  );
+}
+function stopGPS(){
+  if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null}
+  if(gpsMarker){map.removeLayer(gpsMarker);gpsMarker=null}
+  gpsTracking=false;
+  const btn=document.getElementById('gps-btn');
+  btn.classList.remove('tracking');btn.textContent='📍 現在地';
+}
+
+// エクスポート
+function exportJSON(){
+  const blob=new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),cityData},null,2)],{type:'application/json'});
+  dl(blob,`keishichi_backup_${td()}.json`);showToast('JSONをダウンロードしました');
+}
+function exportCSV(){
+  const cm={};allFeatures.forEach(f=>{cm[getCode(f)]={name:getName(f),pref:getPref(f)}});
+  const rows=[['都道府県','市区町村','市区町村コード','ステータス','訪問日','メモ']];
+  Object.entries(cityData).forEach(([code,rec])=>{
+    const i=cm[code]||{name:code,pref:''};
+    (rec.history||[]).forEach(h=>rows.push([i.pref,i.name,code,S_LABELS[h.status||0],h.date||'',h.memo||'']));
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  dl(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),`keishichi_${td()}.csv`);
+  showToast('CSVをダウンロードしました');
+}
+function importJSON(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const parsed=JSON.parse(ev.target.result);
+      const imported=parsed.cityData||parsed;
+      Object.entries(imported).forEach(([code,rec])=>{
+        if(!cityData[code])cityData[code]={history:[]};
+        const existIds=new Set(cityData[code].history.map(h=>h.id));
+        (rec.history||[]).forEach(h=>{if(!existIds.has(h.id))cityData[code].history.push(h)});
+      });
+      saveData();
+      if(geojsonLayer)geojsonLayer.setStyle(styleCity);
+      updateScore();updateStats();updatePrefList();
+      showToast('データを復元しました');input.value='';
+    }catch(e){showToast('⚠️ このファイルはバックアップ形式ではありません。Timeline.jsonは「タイムライン連携」ボタンから読み込んでください')}
+  };
+  reader.readAsText(file);
+}
+// ── Googleタイムライン インポート ──
+function importTimeline(input){
+  const file=input.files[0];if(!file)return;
+  setTimelineResult('読み込み中… ('+Math.round(file.size/1024/1024*10)/10+'MB)','#888');
+  // 大容量ファイル対応: StreamingではなくTextDecoderで分割読み込み
+  const CHUNK=4*1024*1024; // 4MBずつ
+  const chunks=[];
+  let offset=0;
+  function readNext(){
+    if(offset>=file.size){
+      // 全チャンク結合してパース
+      try{
+        const fullText=chunks.join('');
+        const data=JSON.parse(fullText);
+        processTimeline(data);
+      }catch(e){
+        setTimelineResult('❌ JSONの解析に失敗: '+e.message+' (ファイルが壊れているか形式が違います)','#c84b31');
+      }
+      input.value='';
+      return;
+    }
+    const blob=file.slice(offset,offset+CHUNK);
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      chunks.push(ev.target.result);
+      offset+=CHUNK;
+      const pct=Math.round(offset/file.size*100);
+      setTimelineResult('読み込み中… '+Math.min(pct,100)+'%','#888');
+      // UIをブロックしないよう少し待ってから次チャンク
+      setTimeout(readNext,10);
+    };
+    reader.onerror=()=>{
+      setTimelineResult('❌ ファイルの読み込みに失敗しました','#c84b31');
+      input.value='';
+    };
+    reader.readAsText(blob,'UTF-8');
+  }
+  readNext();
+}
+
+function setTimelineResult(msg,color){
+  const el=document.getElementById('timeline-result');
+  if(el){el.textContent=msg;el.style.color=color||'#555';}
+}
+
+function processTimeline(data){
+  // 新形式: { semanticSegments: [...] }
+  // 旧形式: { timelineObjects: [...] }
+  const segments=data.semanticSegments||data.timelineObjects||[];
+  if(!segments.length){
+    setTimelineResult('❌ タイムラインデータが見つかりません。Timeline.jsonを確認してください','#c84b31');
+    return;
+  }
+
+  // 座標から市区町村を特定するため、全featureのbboxとcentroidを事前計算
+  if(!allFeatures.length){
+    setTimelineResult('❌ 地図データが読み込まれていません。先にGeoJSONを読み込んでください','#c84b31');
+    return;
+  }
+
+  setTimelineResult('座標を解析中…（データ量によって少し時間がかかります）','#888');
+
+  // 非同期で処理してUIをブロックしない
+  setTimeout(()=>{
+    try{
+      const result=parseTimelineSegments(segments);
+      applyTimelineResult(result);
+    }catch(e){
+      setTimelineResult('❌ 処理中にエラーが発生しました: '+e.message,'#c84b31');
+      console.error(e);
+    }
+  },50);
+}
+
+function parseTimelineSegments(segments){
+  const points=[]; // {lat, lng, date, type}
+
+  segments.forEach(seg=>{
+    // 新形式: timelinePath（移動軌跡の座標列）
+    if(seg.timelinePath&&seg.timelinePath.length){
+      const path=seg.timelinePath;
+      // 開始・終了の代表点を取得
+      [path[0], path[Math.floor(path.length/2)], path[path.length-1]].forEach(pt=>{
+        const coord=parseLatLng(pt.point||pt);
+        const date=parseTimelineDate(pt.time||seg.startTime);
+        if(coord&&date) points.push({...coord,date,type:'path'});
+      });
+    }
+
+    // 新形式: visit（滞在地点）
+    if(seg.visit){
+      const v=seg.visit;
+      const tc=v.topCandidate||{};
+      // placeLocation は {latLng:"35.67°, 139.65°"} または文字列
+      const pl=tc.placeLocation;
+      let coord=null;
+      if(pl){
+        if(typeof pl==='string') coord=parseLatLng(pl);
+        else if(pl.latLng) coord=parseLatLng(pl.latLng);
+        else coord=parseLatLng(pl);
+      }
+      if(!coord&&tc.location) coord=parseLatLng(tc.location);
+      const date=parseTimelineDate(seg.startTime);
+      if(coord&&date) points.push({...coord,date,type:'visit'});
+    }
+
+    // 旧形式: placeVisit
+    if(seg.placeVisit){
+      const pv=seg.placeVisit;
+      const loc=pv.location;
+      if(loc?.latitudeE7&&loc?.longitudeE7){
+        points.push({
+          lat:loc.latitudeE7/1e7,
+          lng:loc.longitudeE7/1e7,
+          date:parseTimelineDate(pv.duration?.startTimestamp||pv.duration?.startTimeValue),
+          type:'visit'
+        });
+      }
+    }
+
+    // 旧形式: activitySegment（移動区間）
+    if(seg.activitySegment){
+      const as=seg.activitySegment;
+      [as.startLocation,as.endLocation].forEach(loc=>{
+        if(loc?.latitudeE7&&loc?.longitudeE7){
+          points.push({
+            lat:loc.latitudeE7/1e7,
+            lng:loc.longitudeE7/1e7,
+            date:parseTimelineDate(as.duration?.startTimestamp||as.duration?.startTimeValue),
+            type:'transit'
+          });
+        }
+      });
+    }
+  });
+
+  return points.filter(p=>p.lat&&p.lng&&p.date);
+}
+
+function parseLatLng(val){
+  if(!val)return null;
+  if(typeof val==='string'){
+    // 新形式: "35.6762°, 139.6503°" または "35.6762, 139.6503" または "geo:35.67,139.65"
+    const clean=val.replace(/°/g,'').replace(/geo:/,'').trim();
+    const parts=clean.split(/[,\s]+/).map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+    if(parts.length>=2)return{lat:parts[0],lng:parts[1]};
+  }
+  // {latitude, longitude} 形式
+  if(val.latitude!=null)return{lat:parseFloat(val.latitude),lng:parseFloat(val.longitude)};
+  // {lat, lng} 形式
+  if(val.lat!=null)return{lat:parseFloat(val.lat),lng:parseFloat(val.lng)};
+  // {latLng: "35.67°, 139.65°"} 形式（ネストされた場合）
+  if(typeof val==='object'&&val.latLng)return parseLatLng(val.latLng);
+  return null;
+}
+
+function parseTimelineDate(val){
+  if(!val)return null;
+  try{
+    // ISO形式 "2024-03-15T10:00:00Z" など
+    const d=new Date(val);
+    if(!isNaN(d))return d.toISOString().slice(0,10);
+    // タイムスタンプ（ミリ秒文字列）
+    const ts=parseInt(val);
+    if(!isNaN(ts)){const d2=new Date(ts);if(!isNaN(d2))return d2.toISOString().slice(0,10);}
+  }catch(e){}
+  return null;
+}
+
+// 座標から市区町村を特定（簡易バウンディングボックス判定）
+function findCityByLatLng(lat,lng){
+  // 全featureのbboxキャッシュを使用
+  if(!window._cityBboxCache) buildCityBboxCache();
+  const candidates=window._cityBboxCache.filter(c=>
+    lat>=c.minLat&&lat<=c.maxLat&&lng>=c.minLng&&lng<=c.maxLng
+  );
+  if(!candidates.length)return null;
+  // 候補が1つならそれを返す、複数なら重心が近いものを返す
+  if(candidates.length===1)return candidates[0].code;
+  let best=null,bestDist=Infinity;
+  candidates.forEach(c=>{
+    const d=Math.pow(lat-c.cLat,2)+Math.pow(lng-c.cLng,2);
+    if(d<bestDist){bestDist=d;best=c.code;}
+  });
+  return best;
+}
+
+function buildCityBboxCache(){
+  window._cityBboxCache=allFeatures.map(f=>{
+    const code=getCode(f);
+    let minLat=90,maxLat=-90,minLng=180,maxLng=-180;
+    let sumLat=0,sumLng=0,cnt=0;
+    function processCoords(coords){
+      coords.forEach(pt=>{
+        minLng=Math.min(minLng,pt[0]);maxLng=Math.max(maxLng,pt[0]);
+        minLat=Math.min(minLat,pt[1]);maxLat=Math.max(maxLat,pt[1]);
+        sumLng+=pt[0];sumLat+=pt[1];cnt++;
+      });
+    }
+    const g=f.geometry;
+    if(g.type==='Polygon') g.coordinates.forEach(r=>processCoords(r));
+    else if(g.type==='MultiPolygon') g.coordinates.forEach(p=>p.forEach(r=>processCoords(r)));
+    return{code,minLat,maxLat,minLng,maxLng,cLat:sumLat/cnt,cLng:sumLng/cnt};
+  });
+}
+
+function applyTimelineResult(points){
+  if(!points.length){
+    setTimelineResult('⚠️ 有効な座標データが見つかりませんでした','#e65100');
+    return;
+  }
+
+  let added=0,skipped=0;
+  const statusForType={visit:2,path:1,transit:1}; // visit=立ち寄った, path/transit=通過した
+
+  pushHistory();
+  points.forEach(({lat,lng,date,type})=>{
+    // 日本の範囲外はスキップ
+    if(lat<24||lat>46||lng<122||lng>146)return;
+    const code=findCityByLatLng(lat,lng);
+    if(!code)return;
+    if(!cityData[code])cityData[code]={history:[]};
+    // 同日・同ステータスの重複はスキップ
+    const status=statusForType[type]||1;
+    const dup=cityData[code].history.find(h=>h.date===date&&h.status===status);
+    if(dup){skipped++;return;}
+    cityData[code].history.push({
+      id:Date.now()+Math.random(),
+      status,
+      date,
+      dateTo:'',
+      memo:'📍 Googleタイムラインより自動記録'
+    });
+    added++;
+  });
+
+  saveData();
+  if(geojsonLayer) geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+
+  const msg=`✅ ${added}件を記録しました（重複スキップ: ${skipped}件、解析地点数: ${points.length}）`;
+  setTimelineResult(msg,'#2e7d32');
+  showToast(`タイムライン: ${added}件追加`);
+}
+
+function diagnoseTimeline(input){
+  const file=input.files[0];if(!file)return;
+  const MB=Math.round(file.size/1024/1024*100)/100;
+  let report=`📋 診断結果\nファイル名: ${file.name}\nサイズ: ${MB}MB (${file.size}バイト)\n`;
+
+  // 先頭2KB・末尾2KBだけ読んで構造を確認
+  const headBlob=file.slice(0,2048);
+  const tailBlob=file.slice(Math.max(0,file.size-2048));
+
+  const r1=new FileReader();
+  r1.onload=ev=>{
+    const head=ev.target.result;
+    report+=`\n--- 先頭200文字 ---\n${head.slice(0,200)}\n`;
+    const r2=new FileReader();
+    r2.onload=ev2=>{
+      const tail=ev2.target.result;
+      report+=`\n--- 末尾200文字 ---\n${tail.slice(-200)}\n`;
+      // 構造チェック
+      const trimHead=head.trim();
+      if(trimHead.startsWith('{')||trimHead.startsWith('[')){
+        report+='\n✅ JSONとして有効な開始文字です';
+      } else if(trimHead.startsWith('PK')){
+        report+='\n❌ ZIPファイルです。解凍してからJSONを選んでください';
+      } else {
+        report+='\n⚠️ 予期しない開始文字: '+trimHead.slice(0,10);
+      }
+      setTimelineResult(report,'#333');
+    };
+    r2.readAsText(tailBlob,'UTF-8');
+  };
+  r1.readAsText(headBlob,'UTF-8');
+  input.value='';
+}
+
+// ── GPXインポート ──
+function importGPX(input){
+  const file=input.files[0];if(!file)return;
+  setGPXResult('読み込み中…','#888');
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const parser=new DOMParser();
+      const xml=parser.parseFromString(ev.target.result,'application/xml');
+      const err=xml.querySelector('parsererror');
+      if(err){setGPXResult('❌ GPXの解析に失敗しました。正しいGPXファイルか確認してください','#c84b31');return;}
+      processGPX(xml,file.name);
+    }catch(e){
+      setGPXResult('❌ エラー: '+e.message,'#c84b31');
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+function setGPXResult(msg,color){
+  const el=document.getElementById('gpx-result');
+  if(el){el.textContent=msg;el.style.color=color||'#555';}
+}
+
+function processGPX(xml,filename){
+  // trkpt（トラックポイント）とwpt（ウェイポイント）を収集
+  const points=[];
+  // トラックポイント
+  xml.querySelectorAll('trkpt').forEach(pt=>{
+    const lat=parseFloat(pt.getAttribute('lat'));
+    const lng=parseFloat(pt.getAttribute('lon'));
+    const timeEl=pt.querySelector('time');
+    const time=timeEl?timeEl.textContent:'';
+    if(!isNaN(lat)&&!isNaN(lng)) points.push({lat,lng,time,type:'track'});
+  });
+  // ルートポイント
+  xml.querySelectorAll('rtept').forEach(pt=>{
+    const lat=parseFloat(pt.getAttribute('lat'));
+    const lng=parseFloat(pt.getAttribute('lon'));
+    const timeEl=pt.querySelector('time');
+    const time=timeEl?timeEl.textContent:'';
+    if(!isNaN(lat)&&!isNaN(lng)) points.push({lat,lng,time,type:'route'});
+  });
+  // ウェイポイント
+  xml.querySelectorAll('wpt').forEach(pt=>{
+    const lat=parseFloat(pt.getAttribute('lat'));
+    const lng=parseFloat(pt.getAttribute('lon'));
+    const timeEl=pt.querySelector('time');
+    const time=timeEl?timeEl.textContent:'';
+    if(!isNaN(lat)&&!isNaN(lng)) points.push({lat,lng,time,type:'waypoint'});
+  });
+
+  if(!points.length){
+    setGPXResult('❌ GPX内に座標データが見つかりませんでした','#c84b31');return;
+  }
+  if(!allFeatures.length){
+    setGPXResult('❌ 地図データが読み込まれていません。先にGeoJSONを読み込んでください','#c84b31');return;
+  }
+
+  setGPXResult('座標を解析中… ('+points.length+'点)','#888');
+  setTimeout(()=>{
+    try{applyGPXPoints(points,filename);}
+    catch(e){setGPXResult('❌ 処理中にエラー: '+e.message,'#c84b31');}
+  },50);
+}
+
+function applyGPXPoints(points,filename){
+  if(!window._cityBboxCache) buildCityBboxCache();
+
+  // 間引き：隣接点が近すぎる場合スキップ（負荷軽減）
+  const MIN_DIST=0.005; // 約500m
+  const filtered=[points[0]];
+  for(let i=1;i<points.length;i++){
+    const prev=filtered[filtered.length-1];
+    const d=Math.abs(points[i].lat-prev.lat)+Math.abs(points[i].lng-prev.lng);
+    if(d>=MIN_DIST) filtered.push(points[i]);
+  }
+
+  let added=0,skipped=0;
+  const memo=`🗺️ GPX: ${filename}`;
+
+  pushHistory();
+  filtered.forEach(({lat,lng,time})=>{
+    if(lat<24||lat>46||lng<122||lng>146)return; // 日本範囲外スキップ
+    const code=findCityByLatLng(lat,lng);
+    if(!code)return;
+    const date=time?new Date(time).toISOString().slice(0,10):new Date().toISOString().slice(0,10);
+    if(!cityData[code])cityData[code]={history:[]};
+    // 同日・通過の重複スキップ
+    const dup=cityData[code].history.find(h=>h.date===date&&h.status===1);
+    if(dup){skipped++;return;}
+    cityData[code].history.push({
+      id:Date.now()+Math.random(),
+      status:1, // 通過した
+      date,dateTo:'',memo
+    });
+    added++;
+  });
+
+  saveData();
+  if(geojsonLayer)geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+
+  setGPXResult(
+    `✅ ${added}件を記録（重複スキップ: ${skipped}件）\n解析地点: ${points.length}点 → 間引き後: ${filtered.length}点`,
+    '#2e7d32'
+  );
+  showToast(`GPX: ${added}件の市区町村を記録`);
+}
+
+
+
+function clearAllData(){
+  if(!confirm('すべての訪問記録を削除しますか？\nこの操作は取り消せません。'))return;
+  cityData={};saveData();
+  if(geojsonLayer)geojsonLayer.setStyle(styleCity);
+  updateScore();updateStats();updatePrefList();
+  showToast('すべての記録を削除しました');
+}
+function dl(blob,filename){
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1000);
+}
+function td(){return new Date().toISOString().slice(0,10)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+window.addEventListener('load',()=>{
+  loadData();
+  initMap(); // Leaflet確実に使える状態で初期化
+  try{
+    const cached=localStorage.getItem('keishichi_geojson_cache');
+    if(cached){
+      // キャッシュあり→即時起動
+      const g=JSON.parse(cached);
+      buildLayer(g);
+      try{
+        const pc=localStorage.getItem('keishichi_pref_cache');
+        if(pc) buildPrefBorders(JSON.parse(pc));
+      }catch(e){ console.warn('pref cache load failed:',e); }
+      document.getElementById('setup-screen').style.display='none';
+      return;
+    }
+  }catch(e){
+    console.warn('cache broken, clearing:', e);
+    try{localStorage.removeItem('keishichi_geojson_cache');}catch(e2){}
+  }
+  // キャッシュなし→自動ダウンロード開始
+  startAutoLoad();
+});
+</script>
+</body>
+</html>
