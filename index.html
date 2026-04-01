@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>経市値 v7.0.2</title>
+<title>経市値 v7.0.3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700;900&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -243,7 +243,7 @@ header{background:var(--ink);color:var(--paper);padding:8px 14px 6px;display:fle
 </div>
 <header>
   <div class="header-row1">
-    <div class="logo">経<span>市</span>値<span style="font-size:.55rem;opacity:.5;margin-left:4px;font-family:'Noto Sans JP',sans-serif;font-weight:300">v7.0.2</span></div>
+    <div class="logo">経<span>市</span>値<span style="font-size:.55rem;opacity:.5;margin-left:4px;font-family:'Noto Sans JP',sans-serif;font-weight:300">v7.0.3</span></div>
     <div class="score-area">
       <div class="score-num" id="total-score">0</div>
       <div class="score-lbl">合計スコア</div>
@@ -1575,9 +1575,7 @@ async function startAutoLoad(){
 
   }catch(e){
     console.error('autoload error:', e);
-    setLoadStatus('❌ '+e.message+'
-
-Wi-Fiまたはモバイルデータの接続を確認してください', null);
+    setLoadStatus('❌ '+e.message+'\n\nWi-Fiまたはモバイルデータの接続を確認してください', null);
     document.getElementById('load-spinner').style.display='none';
     document.getElementById('load-retry-btn').style.display='block';
   }
